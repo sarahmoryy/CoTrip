@@ -1,29 +1,50 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import '@/globals.css';
+import { store } from '@/store/store';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect } from 'react';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import { UserService } from '../store/all';
+import { clearUser, UserState } from '../store/userSlice';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+function useProtectedRoute() {
+  const dispatch = useDispatch();
+  const router = useRouter();
+  const user = useSelector((state: { user: UserState }) => state.user);
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  useEffect(() => {
+    if (!user.full_name) {
+      // Run navigation *after* mount
+      setTimeout(() => {
+        router.replace('/login');
+      }, 0);
+    }
+  }, [user.full_name, router]);
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
+  useEffect(() => {
+    const handleLogout = async () => {
+      await UserService.logout();
+      dispatch(clearUser());
+      router.replace('/login');
+    };
+  }, [dispatch, router]);
+}
+
+function ProtectedLayout() {
+  useProtectedRoute();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="signup" options={{ headerShown: false }} />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <Provider store={store}>
+      <ProtectedLayout />
+    </Provider>
   );
 }

@@ -1,0 +1,96 @@
+import { useRouter } from 'expo-router';
+import { Lock, Mail } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useDispatch } from 'react-redux';
+
+const logoIcon = require("../assets/images/Car_Auto.png");
+
+export default function LoginScreen() {
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const dispatch = useDispatch();
+
+  const handleSubmit = async () => {
+    router.push('/(tabs)/home')
+    /*setLoading(true);
+    try {
+      await UserService.login(formData.email, formData.password);
+      const user = await UserService.me();
+      if (user) {
+        dispatch(setUser(user));
+        router.push('/(tabs)/home'); // Redirect to tabbed account screen
+      } else {
+        Alert.alert('Error', 'Invalid email or password');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'Login failed');
+    } finally {
+      setLoading(false);
+    } */
+  };
+
+  return (
+    <ScrollView className="flex-1 bg-black" contentContainerClassName="px-6 py-12 ">
+      {/* Header */}
+      <View className="items-center mb-4">
+        <View className="w-20 h-20 bg-black rounded-full items-center justify-center mb-6 mt-24">
+          <Image source={logoIcon} style={{ width: 86, height: 86 }} resizeMode="contain" />
+        </View>
+        <Text className="text-7xl font-semibold text-green-400 mb-11">CoTrip</Text>
+      </View>
+
+      {/* Form Card */}
+      <View className="bg-gray-900 rounded-xl p-6 mb-6">
+        <View className="space-y-6">
+          <View className="space-y-2">
+            <Text className="text-white text-xl font-medium mb-2">Email</Text>
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2">
+              <Mail color="#9ca3af" size={20} style={{marginLeft:8}} />
+              <TextInput
+                value={formData.email}
+                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                className="flex-1 text-white text-lg p-2"
+                placeholder="Enter email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+          <View className="space-y-2">
+            <Text className="text-white text-xl font-medium mb-2">Password</Text>
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-6">
+              <Lock color="#9ca3af" size={20} style={{marginLeft:8}} />
+              <TextInput
+                value={formData.password}
+                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                className="flex-1 text-white text-lg p-2"
+                placeholder="Enter password"
+                secureTextEntry
+              />
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={handleSubmit}
+            className="bg-main rounded-lg py-3 items-center "
+            disabled={loading}
+          >
+            <Text className="text-white text-lg font-medium">
+              {loading ? 'Processing...' : 'SIGN IN'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Create Account Link */}
+      <View className="items-center mt-8">
+        <Text className="text-gray-400 text-2xl mb-4">New to carpooling? </Text>
+        <TouchableOpacity onPress={() => router.push('/signup')}>
+          <Text className="text-main text-xl font-medium">Create Account</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
