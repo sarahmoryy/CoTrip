@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useDispatch } from 'react-redux';
 
+//hello how are you
+
 const logoIcon = require("../assets/images/Car_Auto.png");
 
 export default function LoginScreen() {
