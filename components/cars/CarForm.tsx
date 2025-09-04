@@ -59,7 +59,7 @@ export default function CarForm({ car, onSave, onCancel, isSaving }: CarFormProp
               </Text>
             </View>
             <TouchableOpacity onPress={onCancel} className="p-1">
-              <X color="#9CA3AF" size={24} />
+              <X color="#9CA3AF" size={26} />
             </TouchableOpacity>
           </View>
 

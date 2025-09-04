@@ -44,8 +44,8 @@ export default function CarCard({ car, onEdit, onDelete }: CarCardProps) {
 
         <View className="space-y-2">
           <View className="flex-row justify-between">
-            <Text className="text-xl text-gray-400 flex-row justify-between items-center">
-              <Fuel color="#9CA3AF" size={18}/>
+            <Text className="text-xl text-gray-400">
+              <Fuel color="#9CA3AF" size={18} style={{marginRight:8}}/>
              Consumption
             </Text>
             <Text className="text-xl font-medium text-green-400">

@@ -5,7 +5,7 @@ import TripConfirmation from "@/components/trips/TripConfirmation";
 import TripDetails from "@/components/trips/TripDetails";
 import { MapPin, Plus } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { CarService } from "../../store/carService";
 import { setCars } from "../../store/carSlice";
@@ -151,7 +151,7 @@ export default function Trips() {
 
       {/* Modals */}
       {showForm && (
-        <Modal visible={showForm} animationType="slide">
+        //<Modal visible={showForm} animationType="slide">
           <SimplifiedTripForm
             cars={cars}
             onCalculate={(tripData: Trip) => {
@@ -163,21 +163,21 @@ export default function Trips() {
             onCancel={() => setShowForm(false)}
             isCalculating={isCalculating}
           />
-        </Modal>
+        //</Modal>
       )}
 
       {showConfirmation && pendingTrip && (
-        <Modal visible={showConfirmation} animationType="slide">
+        //<Modal visible={showConfirmation} animationType="slide">
           <TripConfirmation
             trip={pendingTrip}
             onConfirm={handleConfirmTrip}
             onCancel={() => setShowConfirmation(false)}
           />
-        </Modal>
+        //</Modal>
       )}
 
       {showTripDetails && selectedTrip && (
-        <Modal visible={showTripDetails} animationType="slide">
+        //<Modal visible={showTripDetails} animationType="slide">
           <TripDetails
             trip={selectedTrip}
             cars={cars}
@@ -187,11 +187,11 @@ export default function Trips() {
               setSelectedTrip(null);
             }}
           />
-        </Modal>
+        //</Modal>
       )}
 
       {showLocationEditor && selectedTrip && (
-        <Modal visible={showLocationEditor} animationType="slide">
+        //<Modal visible={showLocationEditor} animationType="slide">
           <LocationEditor
             trip={selectedTrip}
             onSave={handleSaveLocationNames}
@@ -200,7 +200,7 @@ export default function Trips() {
               setSelectedTrip(null);
             }}
           />
-        </Modal>
+        //</Modal>
       )}
     </ScrollView>
   );
