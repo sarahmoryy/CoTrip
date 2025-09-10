@@ -1,18 +1,53 @@
 import { useRouter } from 'expo-router';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Lock, Mail } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useDispatch } from 'react-redux';
+import { auth } from '../FirebaseConfig';
 
 //hello how are you
 
 const logoIcon = require("../assets/images/Car_Auto.png");
+
+
 
 export default function LoginScreen() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
+
+
+
+
+
+
+
+  const signin = async () => {
+
+    console.log("TEST")
+    try{
+      const user = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+
+      console.log(user);
+      if (user) router.replace('/(tabs)/home')
+    } catch (error:any) {
+      console.log(error);
+      alert('sign in error' + error);
+    }
+  }
+
+
+  const signup = async () => {
+    try{
+      const user = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      if (user) router.replace('/(tabs)/home')
+    } catch (error:any) {
+      console.log(error);
+      alert('sign in error' + error);
+    }
+  }
 
   const handleSubmit = async () => {
     router.push('/(tabs)/home')
@@ -75,7 +110,7 @@ export default function LoginScreen() {
             </View>
           </View>
           <TouchableOpacity
-            onPress={handleSubmit}
+            onPress={signin}
             className="bg-main rounded-lg py-3 items-center "
             disabled={loading}
           >
