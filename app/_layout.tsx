@@ -1,9 +1,9 @@
-import '@/globals.css';
-import { store } from '@/store/store';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Provider, useDispatch, useSelector } from 'react-redux';
+import '../globals.css';
 import { UserService } from '../store/all';
+import { store } from '../store/store';
 import { clearUser, UserState } from '../store/userSlice';
 
 function useProtectedRoute() {
