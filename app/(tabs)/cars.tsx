@@ -1,14 +1,13 @@
 import { Car as CarIcon, Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import { v4 as uuidv4 } from "uuid";
 import CarCard from "../../components/cars/CarCard";
 import CarForm from "../../components/cars/CarForm";
 import ConsumptionConfirmation from "../../components/cars/ConsumptionConfirmation";
@@ -37,7 +36,7 @@ export default function CarsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const carsData = await CarService.list("-created_date");
+      const carsData = await CarService.list("-createdAt");
       dispatch(setCars(carsData));
     } catch (error) {
       console.error("Error loading cars:", error);
@@ -47,78 +46,79 @@ export default function CarsScreen() {
     }
   };
 
-  const handleSaveCar = async (carData: Car) => {
+const handleSaveCar = async (carData: Car) => {
+  setIsSaving(true);
+  try {
+    const finalCarData = {
+      ...carData,
+      fuel_efficiency: carData.fuel_efficiency || 25,
+    };
+    console.log("Final Car Data:", finalCarData);
+
+    let newCar: Car;
+
+    if (editingCar) {
+      // Update existing
+      await CarService.update(editingCar.id, finalCarData);
+      newCar = { ...editingCar, ...finalCarData };
+    } else {
+      // Create once (Firestore assigns id)
+      newCar = await CarService.create(finalCarData);
+      dispatch(addCar(newCar));
+    }
+    console.log("New/Updated Car:", newCar);
+
+    // Fetch suggested consumption
+    const fetchedConsumption = await CarService.fetchConsumption(
+      newCar.make,
+      newCar.model,
+      newCar.year
+    );
+
+    if (fetchedConsumption) {
+      // Hold car for confirmation modal
+      setPendingCar(newCar);
+      setConsumption(fetchedConsumption);
+      setShowConsumption(true);
+      setShowForm(false);
+    } else {
+      // No suggestion → just close & refresh
+      setShowForm(false);
+      setEditingCar(null);
+      loadCars();
+    }
+  } catch (error) {
+    console.error("Error saving car:", error);
+    setError(error instanceof Error ? error.message : "Failed to save car or fetch consumption");
+  } finally {
+    setIsSaving(false);
+  }
+};
+
+const handleConfirmConsumption = async (updatedCar: Car) => {
+  try {
     setIsSaving(true);
-    try {
-      const finalCarData = {
-        ...carData,
-        fuel_efficiency: carData.fuel_efficiency || 25,
-      };
-      console.log("Final Car Data:", finalCarData); // Debug log
+    if (pendingCar && consumption != null) {
+      // Merge the confirmed consumption into the existing car
+      const delta = { ...updatedCar, consumption_l_100km: consumption };
 
-      let newCar: Car;
-      if (editingCar) {
-        await CarService.update(editingCar.id, finalCarData);
-        newCar = { ...editingCar, ...finalCarData };
-      } else {
-        newCar = await CarService.create({ ...finalCarData, id: uuidv4() });
-        dispatch(addCar(newCar)); // Add to Redux store immediately
-      }
-      console.log("New Car:", newCar); // Debug log
+      await CarService.update(pendingCar.id, delta);
 
-      // Fetch consumption data from API
-      const fetchedConsumption = await CarService.fetchConsumption(
-        newCar.make,
-        newCar.model,
-        newCar.year
-      );
-      console.log("Fetched Consumption:", fetchedConsumption); // Debug log
+      setShowConsumption(false);
+      setPendingCar(null);
+      setConsumption(null);
+      setEditingCar(null);
 
-      if (fetchedConsumption) {
-        setPendingCar(newCar);
-        setConsumption(fetchedConsumption);
-        setShowConsumption(true);
-        setShowForm(false); // Close the CarForm modal after saving
-        console.log("State after setting:", { pendingCar, consumption, showConsumption, showForm }); // Debug log
-      } else {
-        setShowForm(false);
-        setEditingCar(null);
-        loadCars(); // Refresh list if no consumption
-      }
-    } catch (error) {
-      console.error("Error saving car:", error);
-      setError(error instanceof Error ? error.message : "Failed to save car or fetch consumption");
-    } finally {
-      setIsSaving(false);
+      // Reload to reflect the updated consumption
+      loadCars();
     }
-  };
-
-  const handleConfirmConsumption = async (updatedCar: Car) => {
-    try {
-      setIsSaving(true);
-      if (pendingCar && consumption) {
-        let newCar: Car;
-        if (editingCar) {
-          await CarService.update(editingCar.id, updatedCar);
-          newCar = { ...editingCar, ...updatedCar };
-        } else {
-          newCar = await CarService.create({ ...updatedCar, id: uuidv4() });
-          dispatch(addCar(newCar)); // Add to Redux store
-        }
-
-        setShowConsumption(false);
-        setPendingCar(null);
-        setConsumption(null);
-        setEditingCar(null);
-        loadCars(); // Refresh list after confirmation
-      }
-    } catch (error) {
-      console.error("Error confirming consumption:", error);
-      setError(error instanceof Error ? error.message : "Failed to confirm consumption");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  } catch (error) {
+    console.error("Error confirming consumption:", error);
+    setError(error instanceof Error ? error.message : "Failed to confirm consumption");
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const handleEditCar = (car: Car) => {
     setEditingCar(car);
