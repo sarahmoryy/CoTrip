@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router'; // Added useDispatch
+import { useRouter } from 'expo-router';
 import { Edit, LogOut, Settings, User as UserIcon } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -16,7 +16,7 @@ export default function AccountScreen() {
   });
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const dispatch = useDispatch(); // Added dispatch hook
+  const dispatch = useDispatch();
 
   useEffect(() => {
     loadUser();
@@ -51,7 +51,7 @@ export default function AccountScreen() {
   const handleLogout = async () => {
     try {
       await UserService.logout();
-      dispatch(clearUser()); // Now works with useDispatch
+      dispatch(clearUser());
       router.push('/login');
     } catch (error) {
       console.error('Error logging out:', error);
@@ -88,36 +88,81 @@ export default function AccountScreen() {
             <Edit color={isEditing ? 'white' : '#9ca3af'} size={20} />
           </TouchableOpacity>
         </View>
+
         <View className="p-4">
           {isEditing ? (
             <View className="space-y-4">
+              {/* Full Name */}
               <View className="space-y-2">
                 <Text className="text-white text-xl font-medium mb-2">Full Name</Text>
-                <TextInput
-                  value={formData.full_name}
-                  onChangeText={(text) => setFormData({ ...formData, full_name: text })}
-                  className="bg-gray-700 border border-gray-600 text-white text-lg p-2 rounded-lg"
-                  placeholder="Enter full name"
-                />
+
+                {/* Wrapper gives fixed height; TextInput fills it */}
+                <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
+                  <TextInput
+                    value={formData.full_name}
+                    onChangeText={(text) => setFormData({ ...formData, full_name: text })}
+                    placeholder="Enter full name"
+                    placeholderTextColor="#9CA3AF"
+                    // fill the parent height and remove vertical padding so text is vertically centered
+                    style={{
+                      height: '100%',
+                      paddingVertical: 0,
+                      paddingHorizontal: 12,
+                      color: '#fff',
+                      fontSize: 18,
+                      lineHeight: 22,
+                      textAlignVertical: 'center', // Android
+                    }}
+                  />
+                </View>
               </View>
+
+              {/* Phone Number */}
               <View className="space-y-2">
                 <Text className="text-white text-xl font-medium mb-2 mt-2">Phone Number</Text>
-                <TextInput
-                  value={formData.phone}
-                  onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                  className="bg-gray-700 border border-gray-600 text-white text-lg p-2 rounded-lg"
-                  placeholder="(555) 123-4567"
-                />
+                <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
+                  <TextInput
+                    value={formData.phone}
+                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                    placeholder="(555) 123-4567"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                    style={{
+                      height: '100%',
+                      paddingVertical: 0,
+                      paddingHorizontal: 12,
+                      color: '#fff',
+                      fontSize: 18,
+                      lineHeight: 22,
+                      textAlignVertical: 'center',
+                    }}
+                  />
+                </View>
               </View>
+
+              {/* Address */}
               <View className="space-y-2">
                 <Text className="text-white text-xl font-medium mb-2 mt-2">Address</Text>
-                <TextInput
-                  value={formData.address}
-                  onChangeText={(text) => setFormData({ ...formData, address: text })}
-                  className="bg-gray-700 border border-gray-600 text-white text-lg p-2 rounded-lg"
-                  placeholder="Enter address"
-                />
+                <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
+                  <TextInput
+                    value={formData.address}
+                    onChangeText={(text) => setFormData({ ...formData, address: text })}
+                    placeholder="Enter address"
+                    placeholderTextColor="#9CA3AF"
+                    style={{
+                      height: '100%',
+                      paddingVertical: 0,
+                      paddingHorizontal: 12,
+                      color: '#fff',
+                      fontSize: 18,
+                      lineHeight: 22,
+                      textAlignVertical: 'center',
+                    }}
+                  />
+                </View>
               </View>
+
+              {/* Buttons */}
               <View className="flex-row gap-3 mt-5">
                 <TouchableOpacity
                   onPress={() => setIsEditing(false)}
@@ -136,19 +181,19 @@ export default function AccountScreen() {
           ) : (
             <View className="space-y-4">
               <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl mb-2">Full Name</Text>
+                <Text className="text-gray-400 text-xl">Full Name</Text>
                 <Text className="font-medium text-white">{user?.full_name || 'Not set'}</Text>
               </View>
               <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl mb-2">Email</Text>
+                <Text className="text-gray-400 text-xl">Email</Text>
                 <Text className="font-medium text-white">{user?.email}</Text>
               </View>
               <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl mb-2">Phone</Text>
+                <Text className="text-gray-400 text-xl">Phone</Text>
                 <Text className="font-medium text-white">{user?.phone || 'Not set'}</Text>
               </View>
               <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl mb-2">Address</Text>
+                <Text className="text-gray-400 text-xl">Address</Text>
                 <Text className="font-medium text-white">{user?.address || 'Not set'}</Text>
               </View>
             </View>

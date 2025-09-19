@@ -17,13 +17,18 @@ export default function SignupScreen() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await UserService.signup(formData.full_name, formData.email, formData.password, formData.confirmPassword);
+      await UserService.signup(
+        formData.full_name,
+        formData.email,
+        formData.password,
+        formData.confirmPassword
+      );
       Alert.alert('Success', 'Account created! Please log in.');
-      router.push('/login'); // Redirect to login screen after sign-up
+      router.push('/login');
     } catch (error) {
       console.error('Error:', error);
-      // Type guard to assert error is an Error object
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : 'An unknown error occurred';
       Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
@@ -44,60 +49,107 @@ export default function SignupScreen() {
       {/* Form Card */}
       <View className="bg-gray-900 rounded-xl p-6 mb-6">
         <View className="space-y-6">
+          {/* Full Name */}
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Full Name</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2">
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14 px-2">
               <TextInput
                 value={formData.full_name}
                 onChangeText={(text) => setFormData({ ...formData, full_name: text })}
-                className="flex-1 text-white text-lg p-2"
                 placeholder="Enter full name"
+                placeholderTextColor="#9ca3af"
+                style={{
+                  flex: 1,
+                  color: '#fff',
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: '100%',
+                  paddingVertical: 0,
+                  textAlignVertical: 'center',
+                }}
               />
             </View>
           </View>
+
+          {/* Email */}
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Email</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2">
-              <Mail color="#9ca3af" size={20} style={{marginLeft:8}} />
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
+              <Mail color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
-                className="flex-1 text-white text-lg p-2"
                 placeholder="Enter email"
+                placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                style={{
+                  flex: 1,
+                  color: '#fff',
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: '100%',
+                  paddingVertical: 0,
+                  textAlignVertical: 'center',
+                }}
               />
             </View>
           </View>
+
+          {/* Password */}
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Password</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2">
-              <Lock color="#9ca3af" size={20} style={{marginLeft:8}} />
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
+              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.password}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
-                className="flex-1 text-white text-lg p-2"
                 placeholder="Enter password"
+                placeholderTextColor="#9ca3af"
                 secureTextEntry
+                style={{
+                  flex: 1,
+                  color: '#fff',
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: '100%',
+                  paddingVertical: 0,
+                  textAlignVertical: 'center',
+                }}
               />
             </View>
           </View>
+
+          {/* Confirm Password */}
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Confirm Password</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-5">
-              <Lock color="#9ca3af" size={20} style={{marginLeft:8}} />
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-5 h-14">
+              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.confirmPassword}
-                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
-                className="flex-1 text-white text-lg p-2"
+                onChangeText={(text) =>
+                  setFormData({ ...formData, confirmPassword: text })
+                }
                 placeholder="Confirm password"
+                placeholderTextColor="#9ca3af"
                 secureTextEntry
+                style={{
+                  flex: 1,
+                  color: '#fff',
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: '100%',
+                  paddingVertical: 0,
+                  textAlignVertical: 'center',
+                }}
               />
             </View>
           </View>
+
+          {/* Create Account Button */}
           <TouchableOpacity
             onPress={handleSubmit}
-            className="bg-main rounded-lg py-3 items-center "
+            className="bg-main rounded-lg py-3 items-center"
             disabled={loading}
           >
             <Text className="text-white text-lg font-medium">

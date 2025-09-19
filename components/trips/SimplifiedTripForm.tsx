@@ -31,7 +31,7 @@ export default function SimplifiedTripForm({
     date: '', // Not in form yet, can be added or handled elsewhere
     from_location: '',
     to_location: '',
-    passengers: '1',
+    passengers: '', // <-- removed default "1"
     car_id: '',
   });
 
@@ -79,15 +79,28 @@ export default function SimplifiedTripForm({
                 <MapPin color="#4ade80" size={18} />
                 <Text className="ml-2 text-white text-xl">From</Text>
               </View>
-              <TextInput
-                placeholder="Starting point"
-                value={form.from_location}
-                onChangeText={(text) =>
-                  setForm((f) => ({ ...f, from_location: text }))
-                }
-                className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-lg mb-2"
-                placeholderTextColor="#9CA3AF"
-              />
+
+              {/* wrapper sets the fixed height; TextInput fills it */}
+              <View className="h-14 mb-2 bg-gray-800 border border-gray-600 rounded-lg">
+                <TextInput
+                  placeholder="Starting point"
+                  value={form.from_location}
+                  onChangeText={(text) =>
+                    setForm((f) => ({ ...f, from_location: text }))
+                  }
+                  placeholderTextColor="#9CA3AF"
+                  // inline style overrides padding so text is truly centered vertically
+                  style={{
+                    height: '100%',
+                    paddingVertical: 0,
+                    paddingHorizontal: 12,
+                    color: '#fff',       // ensure typed text is white
+                    fontSize: 16,
+                    lineHeight: 20,
+                    textAlignVertical: 'center', // Android
+                  }}
+                />
+              </View>
             </View>
 
             {/* To */}
@@ -96,15 +109,26 @@ export default function SimplifiedTripForm({
                 <MapPin color="#4ade80" size={18} />
                 <Text className="ml-2 text-white text-xl">To</Text>
               </View>
-              <TextInput
-                placeholder="Destination"
-                value={form.to_location}
-                onChangeText={(text) =>
-                  setForm((f) => ({ ...f, to_location: text }))
-                }
-                className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-lg mb-3"
-                placeholderTextColor="#9CA3AF"
-              />
+
+              <View className="h-14 mb-3 bg-gray-800 border border-gray-600 rounded-lg">
+                <TextInput
+                  placeholder="Destination"
+                  value={form.to_location}
+                  onChangeText={(text) =>
+                    setForm((f) => ({ ...f, to_location: text }))
+                  }
+                  placeholderTextColor="#9CA3AF"
+                  style={{
+                    height: '100%',
+                    paddingVertical: 0,
+                    paddingHorizontal: 12,
+                    color: '#fff',
+                    fontSize: 16,
+                    lineHeight: 20,
+                    textAlignVertical: 'center',
+                  }}
+                />
+              </View>
             </View>
 
             {/* Passengers & Car */}
@@ -114,15 +138,28 @@ export default function SimplifiedTripForm({
                   <Users color="#4ade80" size={18} />
                   <Text className="ml-2 text-white text-xl">Passengers</Text>
                 </View>
-                <TextInput
-                  keyboardType="number-pad"
-                  value={form.passengers}
-                  onChangeText={(text) =>
-                    setForm((f) => ({ ...f, passengers: text }))
-                  }
-                  className="bg-gray-800 border border-gray-600 rounded-lg p-3 text-lg"
-                  placeholderTextColor="#9CA3AF"
-                />
+
+                <View className="h-14 bg-gray-800 border border-gray-600 rounded-lg">
+                  <TextInput
+                    keyboardType="number-pad"
+                    value={form.passengers}
+                    onChangeText={(text) =>
+                      setForm((f) => ({ ...f, passengers: text }))
+                    }
+                    placeholder="Number of cotripers"
+                    placeholderTextColor="#9CA3AF"
+                    style={{
+                      height: '100%',
+                      paddingVertical: 0,
+                      paddingHorizontal: 12,
+                      color: '#fff', // ensure typed number is white
+                      fontSize: 16,
+                      lineHeight: 20,
+                      textAlignVertical: 'center',
+                      textAlign: 'left',
+                    }}
+                  />
+                </View>
               </View>
 
               <View className="flex-1">
@@ -136,7 +173,7 @@ export default function SimplifiedTripForm({
                     onValueChange={(val) =>
                       setForm((f) => ({ ...f, car_id: val as string }))
                     }
-                    style={{ color: '#1F2937', padding: 10, fontSize: 16 }} // Dark gray text, larger font
+                    style={{ color: '#1F2937', padding: 10, fontSize: 16 }}
                   >
                     <Picker.Item label="Select car" value="" />
                     {cars.map((c) => (

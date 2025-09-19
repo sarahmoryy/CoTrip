@@ -6,11 +6,7 @@ import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'reac
 import { useDispatch } from 'react-redux';
 import { auth } from '../FirebaseConfig';
 
-//hello how are you
-
 const logoIcon = require("../assets/images/Car_Auto.png");
-
-
 
 export default function LoginScreen() {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -18,55 +14,16 @@ export default function LoginScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
 
-
-
-
-
-
-
   const signin = async () => {
-
-    console.log("TEST")
-    try{
-      const user = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-
-      console.log(user);
-      if (user) router.replace('/(tabs)/home')
-    } catch (error:any) {
-      console.log(error);
-      alert('sign in error' + error);
-    }
-  }
-
-
-  const signup = async () => {
-    try{
-      const user = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      if (user) router.replace('/(tabs)/home')
-    } catch (error:any) {
-      console.log(error);
-      alert('sign in error' + error);
-    }
-  }
-
-  const handleSubmit = async () => {
-    router.push('/(tabs)/home')
-    /*setLoading(true);
+    console.log("TEST");
     try {
-      await UserService.login(formData.email, formData.password);
-      const user = await UserService.me();
-      if (user) {
-        dispatch(setUser(user));
-        router.push('/(tabs)/home'); // Redirect to tabbed account screen
-      } else {
-        Alert.alert('Error', 'Invalid email or password');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Login failed');
-    } finally {
-      setLoading(false);
-    } */
+      const user = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      console.log(user);
+      if (user) router.replace('/(tabs)/home');
+    } catch (error: any) {
+      console.log(error);
+      alert('sign in error' + error);
+    }
   };
 
   return (
@@ -82,33 +39,56 @@ export default function LoginScreen() {
       {/* Form Card */}
       <View className="bg-gray-900 rounded-xl p-6 mb-6">
         <View className="space-y-6">
+          {/* Email */}
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Email</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2">
-              <Mail color="#9ca3af" size={20} style={{marginLeft:8}} />
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
+              <Mail color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
-                className="flex-1 text-white text-lg p-2"
                 placeholder="Enter email"
+                placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                style={{
+                  flex: 1,
+                  color: '#fff',
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: '100%',
+                  paddingVertical: 0,
+                  textAlignVertical: 'center',
+                }}
               />
             </View>
           </View>
+
+          {/* Password */}
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Password</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-6">
-              <Lock color="#9ca3af" size={20} style={{marginLeft:8}} />
+            <View className="flex-row items-center bg-gray-800 rounded-lg mb-6 h-14">
+              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.password}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
-                className="flex-1 text-white text-lg p-2"
                 placeholder="Enter password"
+                placeholderTextColor="#9ca3af"
                 secureTextEntry
+                style={{
+                  flex: 1,
+                  color: '#fff',
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: '100%',
+                  paddingVertical: 0,
+                  textAlignVertical: 'center',
+                }}
               />
             </View>
           </View>
+
+          {/* Sign In Button */}
           <TouchableOpacity
             onPress={signin}
             className="bg-main rounded-lg py-3 items-center "

@@ -42,6 +42,10 @@ export default function LocationEditor({ trip, onSave, onCancel }: Props) {
                 value={form.from_location_name}
                 onChangeText={(t) => setForm((f) => ({ ...f, from_location_name: t }))}
                 className="border border-gray-700 text-gray-400 rounded-lg p-2"
+                placeholder="Enter Point A"
+                placeholderTextColor="#6b7280"
+                textAlign="center"
+                textAlignVertical="center"
               />
             </View>
 
@@ -51,6 +55,10 @@ export default function LocationEditor({ trip, onSave, onCancel }: Props) {
                 value={form.to_location_name}
                 onChangeText={(t) => setForm((f) => ({ ...f, to_location_name: t }))}
                 className="border border-gray-700 text-gray-400 rounded-lg p-2"
+                placeholder="Enter Point B"
+                placeholderTextColor="#6b7280"
+                textAlign="center"
+                textAlignVertical="center"
               />
             </View>
 
