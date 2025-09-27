@@ -3,14 +3,21 @@ import { Car as CarIcon, MapPin, Users, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Car } from '../../store/carSlice'; // Import Car interface
-import { Trip } from '../../store/tripSlice'; // Import Trip interface
+import { Car } from '../../store/carSlice';
+import { Trip } from '../../store/tripSlice';
+
+// API helpers
+import { geocodeAddress, getRoute, routeByAddresses } from '@/assets/api/mapsApi';
+
+// Autocomplete component (you already have this)
+import AutocompleteInput from '@/components/AutoComplete';
 
 interface Props {
   cars: Car[];
@@ -26,39 +33,115 @@ export default function SimplifiedTripForm({
   isCalculating,
 }: Props) {
   const [form, setForm] = useState<Trip>({
-    id: '', // Will be generated later if needed
+    id: '',
     destination: '',
-    date: '', // Not in form yet, can be added or handled elsewhere
+    date: '',
     from_location: '',
     to_location: '',
-    passengers: '', // <-- removed default "1"
+    passengers: '',
     car_id: '',
   });
 
+  // Origin (From) selection via autocomplete
+  const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [originResolved, setOriginResolved] = useState<string>('');
+
+  // Destination (To) selection via autocomplete
+  const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [destResolved, setDestResolved] = useState<string>('');
+
+  const [localBusy, setLocalBusy] = useState(false);
+
   const canSubmit =
-    form.from_location && form.to_location && form.car_id && !isCalculating;
+    !!form.from_location && !!form.to_location && !!form.car_id && !isCalculating && !localBusy;
 
   if (!cars || cars.length === 0) {
     return (
       <Modal transparent animationType="slide">
         <View className="flex-1 bg-black/50 justify-center items-center p-4">
           <View className="bg-gray-900 rounded-xl p-6 w-full max-w-md items-center">
-            <Text className="text-xl font-semibold text-white mb-4">
-              No cars available
-            </Text>
+            <Text className="text-xl font-semibold text-white mb-4">No cars available</Text>
             <Text className="text-gray-400 text-lg text-center mb-6">
               Please add a car before planning a trip.
             </Text>
-            <TouchableOpacity
-              onPress={onCancel}
-              className="bg-main rounded-lg px-4 py-2"
-            >
+            <TouchableOpacity onPress={onCancel} className="bg-main rounded-lg px-4 py-2">
               <Text className="text-white text-lg font-medium">Close</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     );
+  }
+
+  async function handleNext() {
+    try {
+      if (!form.from_location || !form.to_location || !form.car_id) return;
+      if (form.passengers && !/^\d+$/.test(form.passengers)) {
+        return Alert.alert('Invalid passengers', 'Enter a whole number (e.g., 1, 2, 3).');
+      }
+
+      setLocalBusy(true);
+
+      let enriched: any;
+
+      if (originCoords && destCoords) {
+        // Both were selected from autocomplete (coords already known)
+        const route = await getRoute(originCoords, destCoords);
+        enriched = {
+          ...form,
+          from_resolved: originResolved || form.from_location,
+          to_resolved: destResolved || form.to_location,
+          from_coords: originCoords,
+          to_coords: destCoords,
+          distance_meters: route.meters,
+          duration_seconds: route.seconds,
+        };
+      } else if (originCoords && !destCoords) {
+        // Only origin picked → geocode destination
+        const to = await geocodeAddress(form.to_location);
+        const route = await getRoute(originCoords, to.location);
+        enriched = {
+          ...form,
+          from_resolved: originResolved || form.from_location,
+          to_resolved: to.formatted_address,
+          from_coords: originCoords,
+          to_coords: to.location,
+          distance_meters: route.meters,
+          duration_seconds: route.seconds,
+        };
+      } else if (!originCoords && destCoords) {
+        // Only destination picked → geocode origin
+        const from = await geocodeAddress(form.from_location);
+        const route = await getRoute(from.location, destCoords);
+        enriched = {
+          ...form,
+          from_resolved: from.formatted_address,
+          to_resolved: destResolved || form.to_location,
+          from_coords: from.location,
+          to_coords: destCoords,
+          distance_meters: route.meters,
+          duration_seconds: route.seconds,
+        };
+      } else {
+        // Neither picked → free-text for both
+        const { from, to, route } = await routeByAddresses(form.from_location, form.to_location);
+        enriched = {
+          ...form,
+          from_resolved: from.formatted_address,
+          to_resolved: to.formatted_address,
+          from_coords: from.location,
+          to_coords: to.location,
+          distance_meters: route.meters,
+          duration_seconds: route.seconds,
+        };
+      }
+
+      onCalculate(enriched as Trip); // cast until you extend Trip with optional fields
+    } catch (e: any) {
+      Alert.alert('Trip error', e?.message ?? 'Failed to calculate route');
+    } finally {
+      setLocalBusy(false);
+    }
   }
 
   return (
@@ -73,65 +156,54 @@ export default function SimplifiedTripForm({
           </View>
 
           <View className="space-y-6">
-            {/* From */}
-            <View>
+            {/* From (Origin with autocomplete) */}
+            <View style={{ zIndex: 60 }}>
               <View className="flex-row items-center mb-2">
                 <MapPin color="#4ade80" size={18} />
                 <Text className="ml-2 text-white text-xl">From</Text>
               </View>
 
-              {/* wrapper sets the fixed height; TextInput fills it */}
-              <View className="h-14 mb-2 bg-gray-800 border border-gray-600 rounded-lg">
-                <TextInput
-                  placeholder="Starting point"
-                  value={form.from_location}
-                  onChangeText={(text) =>
-                    setForm((f) => ({ ...f, from_location: text }))
-                  }
-                  placeholderTextColor="#9CA3AF"
-                  // inline style overrides padding so text is truly centered vertically
-                  style={{
-                    height: '100%',
-                    paddingVertical: 0,
-                    paddingHorizontal: 12,
-                    color: '#fff',       // ensure typed text is white
-                    fontSize: 16,
-                    lineHeight: 20,
-                    textAlignVertical: 'center', // Android
-                  }}
-                />
-              </View>
+              <AutocompleteInput
+                label=""
+                placeholder="Search starting point"
+                initialText={form.from_location}
+                onTextChange={(text) => {
+                  setForm((f) => ({ ...f, from_location: text }));
+                  setOriginCoords(null);
+                  setOriginResolved('');
+                }}
+                onSelected={(v) => {
+                  setForm((f) => ({ ...f, from_location: v.description }));
+                  setOriginCoords({ lat: v.lat, lng: v.lng });
+                  setOriginResolved(v.description);
+                }}
+              />
             </View>
 
-            {/* To */}
-            <View>
+            {/* To (Destination with autocomplete) */}
+            <View style={{ zIndex: 50 }}>
               <View className="flex-row items-center mb-2">
                 <MapPin color="#4ade80" size={18} />
                 <Text className="ml-2 text-white text-xl">To</Text>
               </View>
 
-              <View className="h-14 mb-3 bg-gray-800 border border-gray-600 rounded-lg">
-                <TextInput
-                  placeholder="Destination"
-                  value={form.to_location}
-                  onChangeText={(text) =>
-                    setForm((f) => ({ ...f, to_location: text }))
-                  }
-                  placeholderTextColor="#9CA3AF"
-                  style={{
-                    height: '100%',
-                    paddingVertical: 0,
-                    paddingHorizontal: 12,
-                    color: '#fff',
-                    fontSize: 16,
-                    lineHeight: 20,
-                    textAlignVertical: 'center',
-                  }}
-                />
-              </View>
+              <AutocompleteInput
+                label=""
+                placeholder="Search destination"
+                initialText={form.to_location}
+                onTextChange={(text) => {
+                  setForm((f) => ({ ...f, to_location: text }));
+                  setDestCoords(null);
+                  setDestResolved('');
+                }}
+                onSelected={(v) => {
+                  setForm((f) => ({ ...f, to_location: v.description }));
+                  setDestCoords({ lat: v.lat, lng: v.lng });
+                  setDestResolved(v.description);
+                }}
+              />
             </View>
 
-            {/* Passengers & Car */}
             <View className="flex-row space-x-4 gap-4">
               <View className="flex-1">
                 <View className="flex-row items-center mb-2">
@@ -173,15 +245,11 @@ export default function SimplifiedTripForm({
                     onValueChange={(val) =>
                       setForm((f) => ({ ...f, car_id: val as string }))
                     }
-                    style={{ color: '#1F2937', padding: 10, fontSize: 16 }}
+                    style={{ color: '#fff', padding: 10, fontSize: 16 }}
                   >
                     <Picker.Item label="Select car" value="" />
                     {cars.map((c) => (
-                      <Picker.Item
-                        key={c.id}
-                        label={`${c.make} ${c.model}`}
-                        value={c.id}
-                      />
+                      <Picker.Item key={c.id} label={`${c.make} ${c.model}`} value={c.id} />
                     ))}
                   </Picker>
                 </View>
@@ -190,11 +258,11 @@ export default function SimplifiedTripForm({
 
             {/* Submit */}
             <TouchableOpacity
-              onPress={() => onCalculate(form)}
+              onPress={handleNext}
               disabled={!canSubmit}
               className={`rounded-lg py-3 ${canSubmit ? 'bg-main' : 'bg-gray-300'} items-center`}
             >
-              {isCalculating ? (
+              {(isCalculating || localBusy) ? (
                 <ActivityIndicator color="white" />
               ) : (
                 <Text className="text-white text-xl font-medium">Next</Text>
