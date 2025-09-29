@@ -25,11 +25,20 @@ export default function AccountScreen() {
   const loadUser = async () => {
     try {
       const userData = await UserService.me();
-      setUser(userData);
-      setFormData({
+
+      // Normalize fields to avoid undefined
+      const normalizedData: UserState = {
         full_name: userData.full_name || '',
+        email: userData.email || '',
         phone: userData.phone || '',
         address: userData.address || '',
+      };
+
+      setUser(normalizedData);
+      setFormData({
+        full_name: normalizedData.full_name,
+        phone: normalizedData.phone,
+        address: normalizedData.address,
       });
     } catch (error) {
       console.error('Error loading user:', error);
@@ -95,15 +104,12 @@ export default function AccountScreen() {
               {/* Full Name */}
               <View className="space-y-2">
                 <Text className="text-white text-xl font-medium mb-2">Full Name</Text>
-
-                {/* Wrapper gives fixed height; TextInput fills it */}
                 <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
                   <TextInput
                     value={formData.full_name}
                     onChangeText={(text) => setFormData({ ...formData, full_name: text })}
                     placeholder="Enter full name"
                     placeholderTextColor="#9CA3AF"
-                    // fill the parent height and remove vertical padding so text is vertically centered
                     style={{
                       height: '100%',
                       paddingVertical: 0,
@@ -111,7 +117,7 @@ export default function AccountScreen() {
                       color: '#fff',
                       fontSize: 18,
                       lineHeight: 22,
-                      textAlignVertical: 'center', // Android
+                      textAlignVertical: 'center',
                     }}
                   />
                 </View>
