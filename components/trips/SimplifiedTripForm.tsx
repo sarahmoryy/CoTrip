@@ -73,76 +73,75 @@ export default function SimplifiedTripForm({
     );
   }
 
-  async function handleNext() {
-    try {
-      if (!form.from_location || !form.to_location || !form.car_id) return;
-      if (form.passengers && !/^\d+$/.test(form.passengers)) {
-        return Alert.alert('Invalid passengers', 'Enter a whole number (e.g., 1, 2, 3).');
-      }
-
-      setLocalBusy(true);
-
-      let enriched: any;
-
-      if (originCoords && destCoords) {
-        // Both were selected from autocomplete (coords already known)
-        const route = await getRoute(originCoords, destCoords);
-        enriched = {
-          ...form,
-          from_resolved: originResolved || form.from_location,
-          to_resolved: destResolved || form.to_location,
-          from_coords: originCoords,
-          to_coords: destCoords,
-          distance_meters: route.meters,
-          duration_seconds: route.seconds,
-        };
-      } else if (originCoords && !destCoords) {
-        // Only origin picked → geocode destination
-        const to = await geocodeAddress(form.to_location);
-        const route = await getRoute(originCoords, to.location);
-        enriched = {
-          ...form,
-          from_resolved: originResolved || form.from_location,
-          to_resolved: to.formatted_address,
-          from_coords: originCoords,
-          to_coords: to.location,
-          distance_meters: route.meters,
-          duration_seconds: route.seconds,
-        };
-      } else if (!originCoords && destCoords) {
-        // Only destination picked → geocode origin
-        const from = await geocodeAddress(form.from_location);
-        const route = await getRoute(from.location, destCoords);
-        enriched = {
-          ...form,
-          from_resolved: from.formatted_address,
-          to_resolved: destResolved || form.to_location,
-          from_coords: from.location,
-          to_coords: destCoords,
-          distance_meters: route.meters,
-          duration_seconds: route.seconds,
-        };
-      } else {
-        // Neither picked → free-text for both
-        const { from, to, route } = await routeByAddresses(form.from_location, form.to_location);
-        enriched = {
-          ...form,
-          from_resolved: from.formatted_address,
-          to_resolved: to.formatted_address,
-          from_coords: from.location,
-          to_coords: to.location,
-          distance_meters: route.meters,
-          duration_seconds: route.seconds,
-        };
-      }
-
-      onCalculate(enriched as Trip); // cast until you extend Trip with optional fields
-    } catch (e: any) {
-      Alert.alert('Trip error', e?.message ?? 'Failed to calculate route');
-    } finally {
-      setLocalBusy(false);
+async function handleNext() {
+  try {
+    if (!form.from_location || !form.to_location || !form.car_id) return;
+    if (form.passengers && !/^\d+$/.test(form.passengers)) {
+      return Alert.alert('Invalid passengers', 'Enter a whole number (e.g., 1, 2, 3).');
     }
+
+    setLocalBusy(true);
+
+    // 1) Do your current enrichment (coords / resolved names / route)
+    let fromResolved = '', toResolved = '';
+    let meters = 0;
+
+    if (originCoords && destCoords) {
+      const route = await getRoute(originCoords, destCoords);
+      fromResolved = originResolved || form.from_location;
+      toResolved = destResolved || form.to_location;
+      meters = route.meters;
+    } else if (originCoords && !destCoords) {
+      const to = await geocodeAddress(form.to_location);
+      const route = await getRoute(originCoords, to.location);
+      fromResolved = originResolved || form.from_location;
+      toResolved = to.formatted_address;
+      meters = route.meters;
+    } else if (!originCoords && destCoords) {
+      const from = await geocodeAddress(form.from_location);
+      const route = await getRoute(from.location, destCoords);
+      fromResolved = from.formatted_address;
+      toResolved = destResolved || form.to_location;
+      meters = route.meters;
+    } else {
+      const { from, to, route } = await routeByAddresses(form.from_location, form.to_location);
+      fromResolved = from.formatted_address;
+      toResolved = to.formatted_address;
+      meters = route.meters;
+    }
+
+    // 2) Map into Trip interface
+    const distanceKm = meters > 0 ? Number((meters / 1000).toFixed(2)) : undefined;
+
+    const payload: Trip = {
+      id: '', // let backend set id; if your backend requires client id, fill it here
+      destination: (form.destination?.trim() || toResolved || form.to_location || '').trim(),
+      date: form.date || new Date().toISOString(),
+
+      from_location_name: fromResolved || undefined,
+      to_location_name: toResolved || undefined,
+
+      from_location: form.from_location || undefined, // raw text/place id you’re storing
+      to_location: form.to_location || undefined,
+
+      passengers: form.passengers || undefined, // keep as string per your interface
+
+      car_id: form.car_id || undefined,
+
+      cost: form.cost !== undefined ? Number(form.cost) : undefined,
+      savings: form.savings !== undefined ? Number(form.savings) : undefined,
+      distance: distanceKm, // number (km)
+    };
+
+    // 3) Up to parent — parent will save to DB immediately and show it
+    onCalculate(payload);
+  } catch (e: any) {
+    Alert.alert('Trip error', e?.message ?? 'Failed to calculate route');
+  } finally {
+    setLocalBusy(false);
   }
+}
+
 
   return (
     <Modal transparent={false} visible={true} animationType="slide" onRequestClose={onCancel}>

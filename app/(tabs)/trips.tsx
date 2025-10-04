@@ -1,12 +1,15 @@
+// Trips.tsx
+import { MapPin, Plus } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useDispatch, useSelector } from "react-redux";
+
 import LocationEditor from "@/components/trips/LocationEditor";
 import SimplifiedTripForm from "@/components/trips/SimplifiedTripForm";
 import TripCard from "@/components/trips/TripCard";
 import TripConfirmation from "@/components/trips/TripConfirmation";
 import TripDetails from "@/components/trips/TripDetails";
-import { MapPin, Plus } from "lucide-react-native";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { useDispatch, useSelector } from "react-redux";
+
 import { CarService } from "../../store/carService";
 import { setCars } from "../../store/carSlice";
 import { RootState } from "../../store/store";
@@ -15,9 +18,9 @@ import { addTrip, deleteTrip, setTrips, Trip, updateTrip } from "../../store/tri
 
 export default function Trips() {
   const dispatch = useDispatch();
-  const cars = useSelector((state: RootState) => state.car.cars || []);
-  const trips = useSelector((state: RootState) => state.trip.trips || []);
-  console.log("Trips data:", trips); // Debug log
+  const cars = useSelector((s: RootState) => s.car.cars || []);
+  const trips = useSelector((s: RootState) => s.trip.trips || []);
+
   const [showForm, setShowForm] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showTripDetails, setShowTripDetails] = useState(false);
@@ -26,6 +29,9 @@ export default function Trips() {
   const [pendingTrip, setPendingTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
+
+  // Track what we just created so we can delete it if user cancels
+  const justCreatedTripIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -38,28 +44,19 @@ export default function Trips() {
       const carsData = await CarService.list();
       dispatch(setCars(carsData));
       dispatch(setTrips(tripsData));
-    } catch (error) {
-      console.error("Error loading data:", error);
+    } catch (e) {
+      console.error("Error loading data:", e);
     } finally {
       setLoading(false);
     }
   };
 
   const handleConfirmTrip = async () => {
-    try {
-      if (pendingTrip) {
-        setIsCalculating(true);
-        const newTrip = await TripService.create({ ...pendingTrip, id: crypto.randomUUID() });
-        dispatch(addTrip(newTrip));
-        setShowConfirmation(false);
-        setPendingTrip(null);
-        loadData();
-      }
-    } catch (error) {
-      console.error("Error saving trip:", error);
-    } finally {
-      setIsCalculating(false);
-    }
+    // Already saved on Next — just close and maybe re-sync
+    setShowConfirmation(false);
+    setPendingTrip(null);
+    justCreatedTripIdRef.current = null;
+    // Optional: await loadData();
   };
 
   const handleTripCardClick = (trip: Trip) => {
@@ -72,7 +69,10 @@ export default function Trips() {
     setShowLocationEditor(true);
   };
 
-  const handleSaveLocationNames = async (locationData: { from_location_name: string; to_location_name: string }) => {
+  const handleSaveLocationNames = async (locationData: {
+    from_location_name: string;
+    to_location_name: string;
+  }) => {
     try {
       if (selectedTrip) {
         await TripService.update(selectedTrip.id, locationData);
@@ -81,8 +81,8 @@ export default function Trips() {
         setSelectedTrip(null);
         loadData();
       }
-    } catch (error) {
-      console.error("Error updating location names:", error);
+    } catch (e) {
+      console.error("Error updating location names:", e);
     }
   };
 
@@ -91,8 +91,8 @@ export default function Trips() {
       await TripService.delete(tripId);
       dispatch(deleteTrip(tripId));
       loadData();
-    } catch (error) {
-      console.error("Error deleting trip:", error);
+    } catch (e) {
+      console.error("Error deleting trip:", e);
     }
   };
 
@@ -149,58 +149,80 @@ export default function Trips() {
         </View>
       )}
 
-      {/* Modals */}
+      {/* Create -> save immediately -> open confirmation */}
       {showForm && (
-        //<Modal visible={showForm} animationType="slide">
-          <SimplifiedTripForm
-            cars={cars}
-            onCalculate={(tripData: Trip) => {
+        <SimplifiedTripForm
+          cars={cars}
+          onCalculate={async (incoming: Trip) => {
+            try {
               setIsCalculating(true);
-              setPendingTrip(tripData);
+
+              // Save to DB FIRST; create() should return the saved Trip inc. id
+              const saved = await TripService.create(incoming);
+
+              // Show on page
+              dispatch(addTrip(saved));
+              justCreatedTripIdRef.current = saved.id;
+
+              // Open confirmation with the saved trip
+              setPendingTrip(saved);
               setShowForm(false);
               setShowConfirmation(true);
-            }}
-            onCancel={() => setShowForm(false)}
-            isCalculating={isCalculating}
-          />
-        //</Modal>
+            } catch (e) {
+              console.error("Error creating trip:", e);
+            } finally {
+              setIsCalculating(false);
+            }
+          }}
+          onCancel={() => setShowForm(false)}
+          isCalculating={isCalculating}
+        />
       )}
 
       {showConfirmation && pendingTrip && (
-        //<Modal visible={showConfirmation} animationType="slide">
-          <TripConfirmation
-            trip={pendingTrip}
-            onConfirm={handleConfirmTrip}
-            onCancel={() => setShowConfirmation(false)}
-          />
-        //</Modal>
+        <TripConfirmation
+          trip={pendingTrip}
+          onConfirm={handleConfirmTrip}
+          onCancel={async () => {
+            // User changed mind — delete the just-created trip
+            try {
+              setIsCalculating(true);
+              const id = justCreatedTripIdRef.current || pendingTrip.id;
+              await TripService.delete(id);
+              dispatch(deleteTrip(id));
+            } catch (e) {
+              console.error("Error rolling back new trip:", e);
+            } finally {
+              setIsCalculating(false);
+              setShowConfirmation(false);
+              setPendingTrip(null);
+              justCreatedTripIdRef.current = null;
+            }
+          }}
+        />
       )}
 
       {showTripDetails && selectedTrip && (
-        //<Modal visible={showTripDetails} animationType="slide">
-          <TripDetails
-            trip={selectedTrip}
-            cars={cars}
-            onEditLocations={handleEditLocations}
-            onClose={() => {
-              setShowTripDetails(false);
-              setSelectedTrip(null);
-            }}
-          />
-        //</Modal>
+        <TripDetails
+          trip={selectedTrip}
+          cars={cars}
+          onEditLocations={handleEditLocations}
+          onClose={() => {
+            setShowTripDetails(false);
+            setSelectedTrip(null);
+          }}
+        />
       )}
 
       {showLocationEditor && selectedTrip && (
-        //<Modal visible={showLocationEditor} animationType="slide">
-          <LocationEditor
-            trip={selectedTrip}
-            onSave={handleSaveLocationNames}
-            onCancel={() => {
-              setShowLocationEditor(false);
-              setSelectedTrip(null);
-            }}
-          />
-        //</Modal>
+        <LocationEditor
+          trip={selectedTrip}
+          onSave={handleSaveLocationNames}
+          onCancel={() => {
+            setShowLocationEditor(false);
+            setSelectedTrip(null);
+          }}
+        />
       )}
     </ScrollView>
   );

@@ -206,7 +206,7 @@ const handleConfirmConsumption = async (updatedCar: Car) => {
 
       {/* Car List */}
       {cars.length > 0 ? (
-        cars.map((car) => (
+        cars.map((car:Car) => (
           <CarCard
             key={car.id}
             car={car}

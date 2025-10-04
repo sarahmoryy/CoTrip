@@ -1,79 +1,88 @@
-// ../../store/TripService.ts
-import { v4 as uuidv4 } from 'uuid';
-import { Trip } from './tripSlice'; // Adjust the path as needed
+// store/tripService.ts
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
+import { auth, db } from '../FirebaseConfig';
+import type { Trip } from './tripSlice';
 
-// Define valid sort keys for Trip
-type TripSortKey = keyof Trip;
+const TRIPS = 'trips';
 
-export class TripService {
-  static async list(sort?: string, limit?: number): Promise<Trip[]> {
-    // Mock trip data
-    const mockTrips: Trip[] = [
-      {
-        id: uuidv4(),
-        destination: "New York",
-        date: "2025-08-10",
-        from_location_name: "Boston", // Explicitly set
-        to_location_name: "New York", // Explicitly set
-        from_location: "42.3601,-71.0589", // Example coordinates
-        to_location: "40.7128,-74.0060",
-        passengers: "2",
-        car_id: "123e4567-e89b-12d3-a456-426614174000", // Match CarService ID
-        cost: 50.0,
-        savings: 20.0,
-        distance: 215.0,
-      },
-      {
-        id: uuidv4(),
-        destination: "Los Angeles",
-        date: "2025-08-15",
-        from_location_name: "San Francisco", // Explicitly set
-        to_location_name: "Los Angeles", // Explicitly set
-        from_location: "37.7749,-122.4194",
-        to_location: "34.0522,-118.2437",
-        passengers: "1",
-        car_id: "987fcdeb-54a3-21fc-b456-426614174001", // Match CarService ID
-        cost: 75.0,
-        savings: 30.0,
-        distance: 380.0,
-      },
-    ];
-
-    let sortedData = [...mockTrips];
-
-    if (sort) {
-      const sortKey = sort.replace('-', '') as TripSortKey; // Cast to TripSortKey
-      sortedData.sort((a, b) => {
-        const aValue = a[sortKey] !== undefined ? a[sortKey] : '';
-        const bValue = b[sortKey] !== undefined ? b[sortKey] : '';
-        return sort.startsWith('-') ? String(bValue).localeCompare(String(aValue)) : String(aValue).localeCompare(String(bValue));
-      });
-    }
-    if (limit) {
-      sortedData = sortedData.slice(0, limit);
-    }
-
-    return sortedData;
-  }
-
-  static async create(trip: Trip): Promise<Trip> {
-    const newTrip: Trip = {
-      ...trip,
-      id: uuidv4(),
-      cost: trip.cost || 0,
-      savings: trip.savings || 0,
-      distance: trip.distance || 0,
-    };
-    return new Promise((resolve) => setTimeout(() => resolve(newTrip), 500)); // Simulate async delay
-  }
-
-  static async update(id: string, tripData: Partial<Trip>): Promise<void> {
-    return new Promise((resolve) => setTimeout(() => resolve(), 500));
-  }
-
-  static async delete(id: string): Promise<void> {
-    return new Promise((resolve) => setTimeout(() => resolve(), 500));
-  }
+function userScopedCollection() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Not signed in');
+  return collection(db, 'users', uid, TRIPS);
 }
+
+// Remove all undefined values (Firestore rejects undefined)
+function sanitizeForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  if (typeof obj !== 'object') return obj;
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    out[k] = sanitizeForFirestore(v);
+  }
+  return out;
+}
+
+export const TripService = {
+  // READ
+  async list(order: string = '-createdAt'): Promise<Trip[]> {
+    const col = userScopedCollection();
+    const q = query(col, orderBy('createdAt', order.startsWith('-') ? 'desc' : 'asc'));
+    const snap = await getDocs(q);
+
+    // Attach doc.id, drop Firestore timestamps from Redux
+    return snap.docs.map((d) => {
+      const { createdAt, updatedAt, ...rest } = d.data() as Record<string, any>;
+      return { id: d.id, ...(rest as Omit<Trip, 'id'>) };
+    });
+  },
+
+  // CREATE (Firestore generates id)
+  async create(trip: Trip): Promise<Trip> {
+    const col = userScopedCollection();
+
+    // Ignore any id coming from the form; sanitize to remove undefined fields
+    const { id: _ignore, ...rest } = trip;
+    const payload = sanitizeForFirestore({
+      ...rest,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const ref = await addDoc(col, payload);
+
+    // Return Trip shaped for Redux/UI (no Timestamp objects)
+    return { id: ref.id, ...(rest as Omit<Trip, 'id'>) };
+  },
+
+  // UPDATE (partial)
+  async update(id: string, patch: Partial<Trip>): Promise<void> {
+    const col = userScopedCollection();
+    const ref = doc(col, id);
+    const { id: _ignore, ...rest } = patch;
+    const payload = sanitizeForFirestore({
+      ...rest,
+      updatedAt: serverTimestamp(),
+    });
+    await updateDoc(ref, payload);
+  },
+
+  // DELETE
+  async delete(id: string): Promise<void> {
+    const col = userScopedCollection();
+    await deleteDoc(doc(col, id));
+  },
+};
 
 export default TripService;
