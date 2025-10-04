@@ -1,3 +1,4 @@
+// src/components/trips/SimplifiedTripForm.tsx
 import { Picker } from '@react-native-picker/picker';
 import { Car as CarIcon, MapPin, Users, X } from 'lucide-react-native';
 import React, { useState } from 'react';
@@ -13,10 +14,13 @@ import {
 import { Car } from '../../store/carSlice';
 import { Trip } from '../../store/tripSlice';
 
-// API helpers
+// API helpers (your existing ones)
 import { geocodeAddress, getRoute, routeByAddresses } from '@/assets/api/mapsApi';
 
-// Autocomplete component (you already have this)
+// Fuel price (CollectAPI via RapidAPI) helper
+import { fetchCanadaGasPricePerLitre } from '@/assets/api/fuelPriceApi';
+
+// Autocomplete component (your existing one)
 import AutocompleteInput from '@/components/AutoComplete';
 
 interface Props {
@@ -73,75 +77,103 @@ export default function SimplifiedTripForm({
     );
   }
 
-async function handleNext() {
-  try {
-    if (!form.from_location || !form.to_location || !form.car_id) return;
-    if (form.passengers && !/^\d+$/.test(form.passengers)) {
-      return Alert.alert('Invalid passengers', 'Enter a whole number (e.g., 1, 2, 3).');
+  // ---- helpers ----
+  const getCarLPerKm = (car?: Car): number => {
+    // Prefer canonical l_per_km if you have it; otherwise derive from L/100km
+    const anyCar = car as any;
+    if (typeof anyCar?.l_per_km === 'number') return anyCar.l_per_km;
+    if (typeof car?.consumption_l_100km === 'number') return car.consumption_l_100km / 100;
+    return 0.085; // fallback (~8.5 L/100km)
+  };
+
+  async function handleNext() {
+    try {
+      if (!form.from_location || !form.to_location || !form.car_id) return;
+      if (form.passengers && !/^\d+$/.test(form.passengers)) {
+        return Alert.alert('Invalid passengers', 'Enter a whole number (e.g., 1, 2, 3).');
+      }
+
+      setLocalBusy(true);
+
+      // 1) Resolve route (you already had this logic)
+      let fromResolved = '', toResolved = '';
+      let meters = 0;
+
+      if (originCoords && destCoords) {
+        const route = await getRoute(originCoords, destCoords);
+        fromResolved = originResolved || form.from_location;
+        toResolved = destResolved || form.to_location;
+        meters = route.meters;
+      } else if (originCoords && !destCoords) {
+        const to = await geocodeAddress(form.to_location);
+        const route = await getRoute(originCoords, to.location);
+        fromResolved = originResolved || form.from_location;
+        toResolved = to.formatted_address;
+        meters = route.meters;
+      } else if (!originCoords && destCoords) {
+        const from = await geocodeAddress(form.from_location);
+        const route = await getRoute(from.location, destCoords);
+        fromResolved = from.formatted_address;
+        toResolved = destResolved || form.to_location;
+        meters = route.meters;
+      } else {
+        const { from, to, route } = await routeByAddresses(form.from_location, form.to_location);
+        fromResolved = from.formatted_address;
+        toResolved = to.formatted_address;
+        meters = route.meters;
+      }
+
+      // 2) Distance (km)
+      const distanceKm = meters > 0 ? Number((meters / 1000).toFixed(2)) : undefined;
+
+      // 3) Compute fuel cost behind the scenes (no UI changes here)
+      const selectedCar = cars.find(c => c.id === form.car_id);
+      const lPerKm = getCarLPerKm(selectedCar);
+
+      // a) fetch origin city (from the resolved "From" address)
+      let pricePerL = 1.70; // fallback if API fails/quota
+      try {
+        const geoFrom = await geocodeAddress(fromResolved || form.from_location);
+        pricePerL = await fetchCanadaGasPricePerLitre(geoFrom.city);
+      } catch (_) {
+        // silent fallback
+      }
+
+      // b) litres & cost
+      const litres = typeof distanceKm === 'number' ? distanceKm * lPerKm : 0;
+      const totalCost = litres * pricePerL;
+
+      // 4) Build payload -> parent (Trips.tsx) will save and open confirmation modal
+      const payload: Trip = {
+        id: '', // let backend set id
+        destination: (form.destination?.trim() || toResolved || form.to_location || '').trim(),
+        date: form.date || new Date().toISOString(),
+
+        from_location_name: fromResolved || undefined,
+        to_location_name: toResolved || undefined,
+
+        from_location: form.from_location || undefined, // raw text/place id
+        to_location: form.to_location || undefined,
+
+        passengers: form.passengers || undefined,
+        car_id: form.car_id || undefined,
+
+        distance: distanceKm,                           // km
+        cost: Number(totalCost.toFixed(2)),             // CAD
+
+        // Optional: stash for later display/debug
+        // fuel_price_per_l: Number(pricePerL.toFixed(3)),
+        // fuel_liters: Number(litres.toFixed(2)),
+        // origin_city: geoFrom.city,
+      };
+
+      onCalculate(payload);
+    } catch (e: any) {
+      Alert.alert('Trip error', e?.message ?? 'Failed to calculate route');
+    } finally {
+      setLocalBusy(false);
     }
-
-    setLocalBusy(true);
-
-    // 1) Do your current enrichment (coords / resolved names / route)
-    let fromResolved = '', toResolved = '';
-    let meters = 0;
-
-    if (originCoords && destCoords) {
-      const route = await getRoute(originCoords, destCoords);
-      fromResolved = originResolved || form.from_location;
-      toResolved = destResolved || form.to_location;
-      meters = route.meters;
-    } else if (originCoords && !destCoords) {
-      const to = await geocodeAddress(form.to_location);
-      const route = await getRoute(originCoords, to.location);
-      fromResolved = originResolved || form.from_location;
-      toResolved = to.formatted_address;
-      meters = route.meters;
-    } else if (!originCoords && destCoords) {
-      const from = await geocodeAddress(form.from_location);
-      const route = await getRoute(from.location, destCoords);
-      fromResolved = from.formatted_address;
-      toResolved = destResolved || form.to_location;
-      meters = route.meters;
-    } else {
-      const { from, to, route } = await routeByAddresses(form.from_location, form.to_location);
-      fromResolved = from.formatted_address;
-      toResolved = to.formatted_address;
-      meters = route.meters;
-    }
-
-    // 2) Map into Trip interface
-    const distanceKm = meters > 0 ? Number((meters / 1000).toFixed(2)) : undefined;
-
-    const payload: Trip = {
-      id: '', // let backend set id; if your backend requires client id, fill it here
-      destination: (form.destination?.trim() || toResolved || form.to_location || '').trim(),
-      date: form.date || new Date().toISOString(),
-
-      from_location_name: fromResolved || undefined,
-      to_location_name: toResolved || undefined,
-
-      from_location: form.from_location || undefined, // raw text/place id you’re storing
-      to_location: form.to_location || undefined,
-
-      passengers: form.passengers || undefined, // keep as string per your interface
-
-      car_id: form.car_id || undefined,
-
-      cost: form.cost !== undefined ? Number(form.cost) : undefined,
-      savings: form.savings !== undefined ? Number(form.savings) : undefined,
-      distance: distanceKm, // number (km)
-    };
-
-    // 3) Up to parent — parent will save to DB immediately and show it
-    onCalculate(payload);
-  } catch (e: any) {
-    Alert.alert('Trip error', e?.message ?? 'Failed to calculate route');
-  } finally {
-    setLocalBusy(false);
   }
-}
-
 
   return (
     <Modal transparent={false} visible={true} animationType="slide" onRequestClose={onCancel}>
@@ -223,7 +255,7 @@ async function handleNext() {
                       height: '100%',
                       paddingVertical: 0,
                       paddingHorizontal: 12,
-                      color: '#fff', // ensure typed number is white
+                      color: '#fff',
                       fontSize: 16,
                       lineHeight: 20,
                       textAlignVertical: 'center',

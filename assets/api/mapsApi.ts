@@ -66,9 +66,10 @@ export async function placeDetails(
 /**
  * Fallback: geocode a raw address string → { formatted_address, lat/lng }.
  */
+// src/services/mapsApi.ts
 export async function geocodeAddress(
   address: string
-): Promise<{ location: LatLng; formatted_address: string }> {
+): Promise<{ location: LatLng; formatted_address: string; city?: string }> {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
     address
   )}&key=${MAPS_API_KEY}`;
@@ -81,9 +82,17 @@ export async function geocodeAddress(
   }
 
   const r = json.results[0];
+
+  // Extract city (locality)
+  const cityComp = r.address_components.find((c: any) =>
+    c.types.includes("locality")
+  );
+  const city = cityComp?.long_name;
+
   return {
     location: r.geometry.location,
     formatted_address: r.formatted_address,
+    city,
   };
 }
 
