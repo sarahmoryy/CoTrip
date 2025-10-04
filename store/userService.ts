@@ -1,91 +1,77 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserState } from './userSlice';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../FirebaseConfig';
+
+export interface UserState {
+  full_name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+}
 
 export class UserService {
-  // Static method to set authentication token
-  private static async setAuthToken(token: string) {
-    await AsyncStorage.setItem('authToken', token);
+
+  /** LOGIN */
+  static async login(email: string, password: string): Promise<UserState> {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    return await UserService.getUserData(user.uid);
   }
 
-  // Make getAuthToken public to allow access from other services
-  public static async getAuthToken(): Promise<string | null> {
-    return await AsyncStorage.getItem('authToken');
-  }
-
-  static async login(email: string, password: string): Promise<void> {
-    const response = await fetch('https://your-api-endpoint/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) throw new Error('Invalid credentials');
-    const data = await response.json();
-    const token = data.token;
-    if (token) {
-      await UserService.setAuthToken(token);
-    } else {
-      throw new Error('No token received');
-    }
-  }
-
-  static async me(): Promise<UserState> {
-    const token = await UserService.getAuthToken();
-    if (!token) throw new Error('No authentication token');
-    const response = await fetch('https://your-api-endpoint/me', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (!response.ok) throw new Error('Failed to fetch user data');
-    const data = await response.json();
-    return {
-      full_name: data.full_name || '',
-      email: data.email || '',
-      phone: data.phone || '',
-      address: data.address || '',
-    };
-  }
-
-  static async updateMyUserData(userData: Partial<UserState>): Promise<void> {
-    const token = await UserService.getAuthToken();
-    if (!token) throw new Error('No authentication token');
-    const response = await fetch('https://your-api-endpoint/me', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(userData),
-    });
-    if (!response.ok) throw new Error('Failed to update user data');
-  }
-
-  static async signup(fullName: string, email: string, password: string, confirmPassword: string): Promise<void> {
+  /** SIGNUP */
+  static async signup(fullName: string, email: string, password: string, confirmPassword: string): Promise<UserState> {
     if (password !== confirmPassword) throw new Error('Passwords do not match');
-    if (!password || !confirmPassword) throw new Error('Password fields are required');
-    const response = await fetch('https://your-api-endpoint/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: fullName, email, password }),
-    });
-    if (!response.ok) throw new Error('Sign-up failed');
+
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Update displayName in Firebase Auth
+    await updateProfile(user, { displayName: fullName });
+
+    // Create user document in Firestore
+    const userData: UserState = {
+      full_name: fullName,
+      email: email,
+      phone: '',
+      address: '',
+    };
+    await setDoc(doc(db, 'users', user.uid), userData);
+
+    return userData;
   }
 
-  static async logout(): Promise<void> {
-    const token = await UserService.getAuthToken();
-    if (token) {
-      const response = await fetch('https://your-api-endpoint/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to logout');
-      await AsyncStorage.removeItem('authToken');
+  /** GET CURRENT USER DATA */
+  static async me(): Promise<UserState> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user is currently logged in');
+    return await UserService.getUserData(user.uid);
+  }
+
+  /** UPDATE USER DATA */
+  static async updateMyUserData(userData: Partial<UserState>): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user is currently logged in');
+
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, userData);
+
+    // Optionally update displayName in Firebase Auth if full_name changes
+    if (userData.full_name) {
+      await updateProfile(user, { displayName: userData.full_name });
     }
+  }
+
+  /** LOGOUT */
+  static async logout(): Promise<void> {
+    await signOut(auth);
+  }
+
+  /** HELPER: Get user data from Firestore */
+  private static async getUserData(uid: string): Promise<UserState> {
+    const userRef = doc(db, 'users', uid);
+    const docSnap = await getDoc(userRef);
+    if (!docSnap.exists()) throw new Error('User data not found in Firestore');
+    return docSnap.data() as UserState;
   }
 }
 
