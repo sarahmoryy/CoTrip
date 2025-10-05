@@ -58,7 +58,7 @@ export default function SimplifiedTripForm({
   if (!cars || cars.length === 0) {
     return (
       <Modal transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-center items-center p-4">
+        <View style={{ flex: 1, backgroundColor: 'rgba(24, 32, 47, 0.9)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
           <View className="bg-gray-900 rounded-xl p-6 w-full max-w-md items-center">
             <Text className="text-xl font-semibold text-white mb-4">No cars available</Text>
             <Text className="text-gray-400 text-lg text-center mb-6">

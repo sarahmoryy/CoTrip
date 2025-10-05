@@ -6,6 +6,9 @@ module.exports = {
     "./app/**/*.{js,jsx,ts,tsx}",
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  corePlugins: {
+    backgroundOpacity: true,
+  },
   theme: {
     extend: {
       colors: {
