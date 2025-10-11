@@ -6,6 +6,8 @@ const _Layout = () => {
   return (
     <Tabs
       screenOptions={{
+        lazy: false,                 // 👈 mount all tabs on app load
+        unmountOnBlur: false,        // 👈 keep screens mounted when switching
         tabBarActiveTintColor: '#10B981',
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: { backgroundColor: '#111827', borderTopWidth: 1, borderTopColor: '#374151' },
