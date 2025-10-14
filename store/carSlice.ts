@@ -8,7 +8,7 @@ export interface Car {
   license_plate?: string;
   consumption_l_100km?: number;
   fuel_efficiency?: number;
-  [key: string]: string | number | undefined; // Index signature for dynamic access
+  [key: string]: string | number | undefined | any; // Index signature for dynamic access
 }
 
 interface CarState {
