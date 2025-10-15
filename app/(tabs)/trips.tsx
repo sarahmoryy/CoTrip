@@ -1,13 +1,12 @@
-// Trips.tsx
 import { MapPin, Plus } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 
 import LocationEditor from "@/components/trips/LocationEditor";
 import SimplifiedTripForm from "@/components/trips/SimplifiedTripForm";
 import TripCard from "@/components/trips/TripCard";
-import TripConfirmation from "@/components/trips/TripConfirmation";
+import TripConfirmation from "@/components/trips/TripConfirmation"; // <-- use separate component
 import TripDetails from "@/components/trips/TripDetails";
 
 import { CarService } from "../../store/carService";
@@ -49,14 +48,6 @@ export default function Trips() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleConfirmTrip = async () => {
-    // Already saved on Next — just close and maybe re-sync
-    setShowConfirmation(false);
-    setPendingTrip(null);
-    justCreatedTripIdRef.current = null;
-    // Optional: await loadData();
   };
 
   const handleTripCardClick = (trip: Trip) => {
@@ -156,7 +147,6 @@ export default function Trips() {
           onCalculate={async (incoming: Trip) => {
             try {
               setIsCalculating(true);
-
               // Save to DB FIRST; create() should return the saved Trip inc. id
               const saved = await TripService.create(incoming);
 
@@ -182,7 +172,25 @@ export default function Trips() {
       {showConfirmation && pendingTrip && (
         <TripConfirmation
           trip={pendingTrip}
-          onConfirm={handleConfirmTrip}
+          onConfirm={async (updated) => {
+            try {
+              setIsCalculating(true);
+              const s = Number.isFinite(updated.savings as number) ? (updated.savings as number) : 0;
+
+              // 1) Persist to Firestore
+              await TripService.update(updated.id, { savings: s });
+
+              // 2) Update Redux immediately
+              dispatch(updateTrip({ id: updated.id, tripData: { savings: s } }));
+            } catch (e) {
+              console.error("Error confirming trip:", e);
+            } finally {
+              setIsCalculating(false);
+              setShowConfirmation(false);
+              setPendingTrip(null);
+              justCreatedTripIdRef.current = null;
+            }
+          }}
           onCancel={async () => {
             // User changed mind — delete the just-created trip
             try {
@@ -206,7 +214,10 @@ export default function Trips() {
         <TripDetails
           trip={selectedTrip}
           cars={cars}
-          onEditLocations={handleEditLocations}
+          onEditLocations={() => {
+            setShowTripDetails(false);
+            setShowLocationEditor(true);
+          }}
           onClose={() => {
             setShowTripDetails(false);
             setSelectedTrip(null);
@@ -217,7 +228,19 @@ export default function Trips() {
       {showLocationEditor && selectedTrip && (
         <LocationEditor
           trip={selectedTrip}
-          onSave={handleSaveLocationNames}
+          onSave={async (locationData) => {
+            try {
+              if (selectedTrip) {
+                await TripService.update(selectedTrip.id, locationData);
+                dispatch(updateTrip({ id: selectedTrip.id, tripData: locationData }));
+                setShowLocationEditor(false);
+                setSelectedTrip(null);
+                loadData();
+              }
+            } catch (e) {
+              console.error("Error updating location names:", e);
+            }
+          }}
           onCancel={() => {
             setShowLocationEditor(false);
             setSelectedTrip(null);
