@@ -1,19 +1,23 @@
-// generateVehicleLists.js
-const fs = require("fs");
-const { XMLParser } = require("fast-xml-parser");
-const path = require("path");
+/**
+ * generateVehicleLists.js
+ *
+ * Converts EPA vehicle XML data into a static TypeScript file (vehicleLists.ts)
+ * with makes, models, years, and combined consumption in L/100km.
+ */
 
-// Path to your XML
+const fs = require("fs");
+const path = require("path");
+const { XMLParser } = require("fast-xml-parser");
+
+// Path to your XML file
 const xmlFilePath = path.join(__dirname, "assets", "vehicles.xml");
 
-// Read XML
+// Read and parse XML
 const xmlData = fs.readFileSync(xmlFilePath, "utf-8");
-
-// Parse XML
 const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: true });
 const parsed = parser.parse(xmlData);
 
-// Ensure vehicles array
+// Extract <vehicle> entries
 const vehiclesRaw = parsed.vehicles.vehicle;
 const vehiclesArray = Array.isArray(vehiclesRaw) ? vehiclesRaw : [vehiclesRaw];
 
@@ -23,14 +27,19 @@ const CAR_MODELS = {};
 const CAR_YEARS = {};
 const VEHICLES = {};
 
-// Populate
+// Conversion helper: MPG → L/100 km
+const mpgToLPer100km = (mpg) =>
+  mpg && mpg > 0 ? Math.round((235.215 / mpg) * 10) / 10 : null;
+
+// Populate data
 vehiclesArray.forEach((v) => {
   const make = v.make ? String(v.make).trim() : "";
   const model = v.model ? String(v.model).trim() : "";
   const year = parseInt(String(v.year));
-  const combinedLPer100km = parseFloat(String(v.combUmpk));
+  const comb08 = parseFloat(String(v.comb08)); // combined MPG from XML
+  const combinedLPer100km = mpgToLPer100km(comb08);
 
-  if (!make || !model || isNaN(year) || isNaN(combinedLPer100km)) return;
+  if (!make || !model || isNaN(year) || combinedLPer100km == null) return;
 
   CAR_MAKES.add(make);
 
@@ -43,25 +52,25 @@ vehiclesArray.forEach((v) => {
   if (!CAR_YEARS[make][model]) CAR_YEARS[make][model] = [];
   if (!CAR_YEARS[make][model].includes(year)) CAR_YEARS[make][model].push(year);
 
-  // Full vehicle info
+  // Vehicles
   if (!VEHICLES[make]) VEHICLES[make] = {};
   if (!VEHICLES[make][model]) VEHICLES[make][model] = [];
   VEHICLES[make][model].push({ year, combinedLPer100km });
 });
 
-// Sort arrays
+// Sort everything
 const sortedMakes = Array.from(CAR_MAKES).sort();
 for (const make of Object.keys(CAR_MODELS)) {
   CAR_MODELS[make].sort();
   for (const model of Object.keys(CAR_YEARS[make])) {
-    CAR_YEARS[make][model].sort((a, b) => b - a); // latest year first
+    CAR_YEARS[make][model].sort((a, b) => b - a); // newest first
     VEHICLES[make][model].sort((a, b) => b.year - a.year);
   }
 }
 
-// Generate TypeScript content
+// Generate TypeScript output
 const tsContent = `
-// Auto-generated from vehicles.xml
+// ⚙️ Auto-generated from vehicles.xml
 export interface VehicleEntry {
   year: number;
   combinedLPer100km: number;

@@ -1,6 +1,6 @@
+import { VEHICLES } from "@/vehicleLists";
 import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { auth, db } from "../FirebaseConfig";
-import { getCombinedConsumption } from "../utils/vehicleData";
 import type { Car } from "./carSlice";
 
 const CARS = "cars";
@@ -48,8 +48,23 @@ export const CarService = {
     await deleteDoc(doc(col, id));
   },
 
-  // ✅ Fetch combined fuel consumption from CSV
   async fetchConsumption(make: string, model: string, year: number): Promise<number | null> {
-    return await getCombinedConsumption(make, model, year);
+    try {
+      if (!make || !model || !year) return null;
+
+      const makeData = VEHICLES[make];
+      if (!makeData) return null;
+
+      const modelData = makeData[model];
+      if (!modelData) return null;
+
+      const entry = modelData.find((v) => v.year === year);
+      if (!entry || !entry.combinedLPer100km) return null;
+
+      return entry.combinedLPer100km;
+    } catch (err) {
+      console.error("Error fetching consumption:", err);
+      return null;
+    }
   },
 };
