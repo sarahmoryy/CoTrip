@@ -22,16 +22,16 @@ export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProp
     >
       {/* Header */}
       <View className="flex-row justify-between mb-3">
-        <View className="pr-2"> {/* Removed flex-1 to allow natural width */}
+        <View className="pr-2">
           <View className="flex-row items-center mb-1">
             <MapPin color="#4ade80" size={20} />
-            <Text className="ml-1 font-medium text-white text-xl"> {/* Removed truncate */}
+            <Text className="ml-1 font-medium text-white text-xl">
               {trip.from_location_name || trip.from_location || 'Unknown'}
             </Text>
           </View>
           <View className="flex-row items-center">
-            <Text className="text-white text-xl ">→</Text>
-            <Text className="ml-1 text-white text-xl mb-2"> {/* Removed truncate */}
+            <Text className="text-white text-xl">→</Text>
+            <Text className="ml-1 text-white text-xl mb-2">
               {trip.to_location_name || trip.to_location || 'Unknown'}
             </Text>
           </View>
