@@ -36,7 +36,7 @@ function sanitizeForFirestore(obj: any): any {
 
 export const TripService = {
   // READ
-  async list(order: string = '-createdAt'): Promise<Trip[]> {
+  async list(order: string = '-createdAt', p0: number): Promise<Trip[]> {
     const col = userScopedCollection();
     const q = query(col, orderBy('createdAt', order.startsWith('-') ? 'desc' : 'asc'));
     const snap = await getDocs(q);
@@ -86,3 +86,4 @@ export const TripService = {
 };
 
 export default TripService;
+
