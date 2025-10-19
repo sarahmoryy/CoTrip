@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from "react-redux";
 import LocationEditor from "@/components/trips/LocationEditor";
 import SimplifiedTripForm from "@/components/trips/SimplifiedTripForm";
 import TripCard from "@/components/trips/TripCard";
-import TripConfirmation from "@/components/trips/TripConfirmation"; // <-- use separate component
+import TripConfirmation from "@/components/trips/TripConfirmation";
 import TripDetails from "@/components/trips/TripDetails";
 
 import { CarService } from "../../store/carService";
@@ -60,6 +60,7 @@ export default function Trips() {
     setShowLocationEditor(true);
   };
 
+  // (Legacy) only used if LocationEditor returned names-only in older versions.
   const handleSaveLocationNames = async (locationData: {
     from_location_name: string;
     to_location_name: string;
@@ -94,6 +95,12 @@ export default function Trips() {
       </View>
     );
   }
+
+  // ✅ Precompute selected car for the editor (no consts inside JSX)
+  const selectedCar =
+    selectedTrip && selectedTrip.car_id
+      ? cars.find((c) => c.id === selectedTrip.car_id)
+      : undefined;
 
   return (
     <ScrollView className="flex-1 bg-black px-4 pt-10">
@@ -225,27 +232,26 @@ export default function Trips() {
         />
       )}
 
-      {showLocationEditor && selectedTrip && (
+      {/* ✅ Location editor now saves via dispatch internally (no onSave prop) */}
+      {showLocationEditor && selectedTrip && selectedCar && (
         <LocationEditor
           trip={selectedTrip}
-          onSave={async (locationData) => {
-            try {
-              if (selectedTrip) {
-                await TripService.update(selectedTrip.id, locationData);
-                dispatch(updateTrip({ id: selectedTrip.id, tripData: locationData }));
-                setShowLocationEditor(false);
-                setSelectedTrip(null);
-                loadData();
-              }
-            } catch (e) {
-              console.error("Error updating location names:", e);
-            }
-          }}
+          car={selectedCar}
+          passengers={selectedTrip.passengers ?? "1"}
           onCancel={() => {
             setShowLocationEditor(false);
             setSelectedTrip(null);
           }}
         />
+      )}
+
+      {/* If no car found for the selected trip, show a gentle notice */}
+      {showLocationEditor && selectedTrip && !selectedCar && (
+        <View className="p-4">
+          <Text className="text-white">
+            This trip has no car selected. Please select a car for this trip before editing locations.
+          </Text>
+        </View>
       )}
     </ScrollView>
   );

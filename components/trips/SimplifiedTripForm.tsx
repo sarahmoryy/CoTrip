@@ -14,14 +14,11 @@ import {
 import { Car } from '../../store/carSlice';
 import { Trip } from '../../store/tripSlice';
 
-// API helpers (your existing ones)
-import { geocodeAddress, getRoute, routeByAddresses } from '@/assets/api/mapsApi';
-
-// Fuel price (CollectAPI via RapidAPI) helper
-import { fetchCanadaGasPricePerLitre } from '@/assets/api/fuelPriceApi';
-
-// Autocomplete component (your existing one)
+// Your autocomplete input
 import AutocompleteInput from '@/components/AutoComplete';
+
+// 🔁 Shared one-way calc
+import { computeTripOneWay } from '@/assets/utils/computeTrips';
 
 interface Props {
   cars: Car[];
@@ -46,11 +43,11 @@ export default function SimplifiedTripForm({
     car_id: '',
   });
 
-  // Origin (From) selection via autocomplete
+  // Origin (From) via autocomplete
   const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [originResolved, setOriginResolved] = useState<string>('');
 
-  // Destination (To) selection via autocomplete
+  // Destination (To) via autocomplete
   const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destResolved, setDestResolved] = useState<string>('');
 
@@ -77,15 +74,6 @@ export default function SimplifiedTripForm({
     );
   }
 
-  // ---- helpers ----
-  const getCarLPerKm = (car?: Car): number => {
-    // Prefer canonical l_per_km if you have it; otherwise derive from L/100km
-    const anyCar = car as any;
-    if (typeof anyCar?.l_per_km === 'number') return anyCar.l_per_km;
-    if (typeof car?.consumption_l_100km === 'number') return car.consumption_l_100km / 100;
-    return 0.085; // fallback (~8.5 L/100km)
-  };
-
   async function handleNext() {
     try {
       if (!form.from_location || !form.to_location || !form.car_id) return;
@@ -95,76 +83,45 @@ export default function SimplifiedTripForm({
 
       setLocalBusy(true);
 
-      // 1) Resolve route (you already had this logic)
-      let fromResolved = '', toResolved = '';
-      let meters = 0;
-
-      if (originCoords && destCoords) {
-        const route = await getRoute(originCoords, destCoords);
-        fromResolved = originResolved || form.from_location;
-        toResolved = destResolved || form.to_location;
-        meters = route.meters;
-      } else if (originCoords && !destCoords) {
-        const to = await geocodeAddress(form.to_location);
-        const route = await getRoute(originCoords, to.location);
-        fromResolved = originResolved || form.from_location;
-        toResolved = to.formatted_address;
-        meters = route.meters;
-      } else if (!originCoords && destCoords) {
-        const from = await geocodeAddress(form.from_location);
-        const route = await getRoute(from.location, destCoords);
-        fromResolved = from.formatted_address;
-        toResolved = destResolved || form.to_location;
-        meters = route.meters;
-      } else {
-        const { from, to, route } = await routeByAddresses(form.from_location, form.to_location);
-        fromResolved = from.formatted_address;
-        toResolved = to.formatted_address;
-        meters = route.meters;
-      }
-
-      // 2) Distance (km)
-      const distanceKm = meters > 0 ? Number((meters / 1000).toFixed(2)) : undefined;
-
-      // 3) Compute fuel cost behind the scenes (no UI changes here)
+      // Pick the selected car
       const selectedCar = cars.find(c => c.id === form.car_id);
-      const lPerKm = getCarLPerKm(selectedCar);
-
-      // a) fetch origin city (from the resolved "From" address)
-      let pricePerL = 1.70; // fallback if API fails/quota
-      try {
-        const geoFrom = await geocodeAddress(fromResolved || form.from_location);
-        pricePerL = await fetchCanadaGasPricePerLitre(geoFrom.city);
-      } catch (_) {
-        // silent fallback
+      if (!selectedCar) {
+        setLocalBusy(false);
+        return Alert.alert('Select a car', 'Please choose a car to continue.');
       }
 
-      // b) litres & cost
-      const litres = typeof distanceKm === 'number' ? distanceKm * lPerKm : 0;
-      const totalCost = litres * pricePerL;
+      // 🔁 Use shared helper (one-way only)
+      const m = await computeTripOneWay({
+        fromText: originResolved || form.from_location,
+        toText:   destResolved   || form.to_location,
+        car: selectedCar,
+        passengers: form.passengers,
+        fromCoords: originCoords,
+        toCoords:   destCoords,
+      });
 
-      // 4) Build payload -> parent (Trips.tsx) will save and open confirmation modal
+      // Build payload -> parent saves / opens confirmation
       const payload: Trip = {
         id: '', // let backend set id
-        destination: (form.destination?.trim() || toResolved || form.to_location || '').trim(),
+        destination: (form.destination?.trim() || m.toResolved || form.to_location || '').trim(),
         date: form.date || new Date().toISOString(),
 
-        from_location_name: fromResolved || undefined,
-        to_location_name: toResolved || undefined,
+        from_location_name: m.fromResolved || undefined,
+        to_location_name:   m.toResolved   || undefined,
 
-        from_location: form.from_location || undefined, // raw text/place id
-        to_location: form.to_location || undefined,
+        from_location: originResolved || form.from_location || undefined, // raw/pretty for UI
+        to_location:   destResolved   || form.to_location   || undefined,
 
-        passengers: form.passengers || undefined,
+        passengers: m.passengers,
         car_id: form.car_id || undefined,
 
-        distance: distanceKm,                           // km
-        cost: Number(totalCost.toFixed(2)),             // CAD
+        distance: m.distanceKm,                // km (one-way)
+        cost: m.totalCost,                     // CAD
 
-        // Optional: stash for later display/debug
-        // fuel_price_per_l: Number(pricePerL.toFixed(3)),
-        // fuel_liters: Number(litres.toFixed(2)),
-        // origin_city: geoFrom.city,
+        // Optional extras you may want to store/show:
+        // fuel_liters: m.litres,
+        // fuel_price_per_l: m.pricePerL,
+        // cost_per_person: m.costPerPerson,
       };
 
       onCalculate(payload);
@@ -187,7 +144,7 @@ export default function SimplifiedTripForm({
           </View>
 
           <View className="space-y-6">
-            {/* From (Origin with autocomplete) */}
+            {/* From */}
             <View style={{ zIndex: 60 }}>
               <View className="flex-row items-center mb-2">
                 <MapPin color="#4ade80" size={18} />
@@ -211,7 +168,7 @@ export default function SimplifiedTripForm({
               />
             </View>
 
-            {/* To (Destination with autocomplete) */}
+            {/* To */}
             <View style={{ zIndex: 50 }}>
               <View className="flex-row items-center mb-2">
                 <MapPin color="#4ade80" size={18} />
@@ -246,9 +203,7 @@ export default function SimplifiedTripForm({
                   <TextInput
                     keyboardType="number-pad"
                     value={form.passengers}
-                    onChangeText={(text) =>
-                      setForm((f) => ({ ...f, passengers: text }))
-                    }
+                    onChangeText={(text) => setForm((f) => ({ ...f, passengers: text }))}
                     placeholder="Number of cotripers"
                     placeholderTextColor="#9CA3AF"
                     style={{
@@ -273,9 +228,7 @@ export default function SimplifiedTripForm({
                 <View className="bg-gray-800 border border-gray-600 rounded-lg mb-6">
                   <Picker
                     selectedValue={form.car_id}
-                    onValueChange={(val) =>
-                      setForm((f) => ({ ...f, car_id: val as string }))
-                    }
+                    onValueChange={(val) => setForm((f) => ({ ...f, car_id: val as string }))}
                     style={{ color: '#fff', padding: 10, fontSize: 16 }}
                   >
                     <Picker.Item label="Select car" value="" />
