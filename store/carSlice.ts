@@ -1,16 +1,20 @@
 // store/carSlice.ts
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { CarService } from './carService'; // ⬅️ ensure this path is correct
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { toMillis } from "../assets/utils/conversion";
+import { CarService } from "./carService";
+import { clearUser } from "./userSlice"; // ← optional: wipe cars on logout
 
 export interface Car {
   id: string;
   make: string;
   model: string;
-  year: number;
+  year: number | null;
   license_plate?: string;
-  consumption_l_100km?: number;
-  fuel_efficiency?: number;
-  [key: string]: string | number | undefined | any; // Index signature for dynamic access
+  consumption_l_100km?: number | null;
+  fuel_efficiency?: number | null;
+  createdAt?: number | null;
+  updatedAt?: number | null;
+  [key: string]: any;
 }
 
 interface CarState {
@@ -19,51 +23,89 @@ interface CarState {
 
 const initialState: CarState = { cars: [] };
 
+// ---- serializers ----
+const toNumber = (n: any) =>
+  typeof n === "number" ? n : typeof n === "string" ? Number(n) || 0 : 0;
+
+const serializeCar = (c: any): Car => ({
+  ...c,
+  year: c?.year == null ? null : toNumber(c.year),
+  fuel_efficiency: c?.fuel_efficiency == null ? null : toNumber(c.fuel_efficiency),
+  consumption_l_100km:
+    c?.consumption_l_100km == null ? null : toNumber(c.consumption_l_100km),
+  createdAt: toMillis(c?.createdAt),
+  updatedAt: toMillis(c?.updatedAt),
+});
+
+const serializeCars = (arr: any[]): Car[] => (arr ?? []).map(serializeCar);
+
+// ---- slice ----
 const carSlice = createSlice({
-  name: 'car',
+  name: "car",
   initialState,
   reducers: {
-    addCar: (state, action: PayloadAction<Car>) => {
-      state.cars.push(action.payload);
+    setCars: {
+      reducer(state, action: PayloadAction<Car[]>) {
+        state.cars = action.payload;
+      },
+      prepare(cars: any[]) {
+        return { payload: serializeCars(cars) };
+      },
     },
-    removeCar: (state, action: PayloadAction<string>) => {
-      state.cars = state.cars.filter((car) => car.id !== action.payload);
+    addCar: {
+      reducer(state, action: PayloadAction<Car>) {
+        state.cars.push(action.payload);
+      },
+      prepare(car: any) {
+        return { payload: serializeCar(car) };
+      },
     },
-    clearCars: (state) => {
-      state.cars = [];
+    updateCar: {
+      reducer(state, action: PayloadAction<Car>) {
+        const i = state.cars.findIndex((c) => c.id === action.payload.id);
+        if (i >= 0) state.cars[i] = action.payload;
+      },
+      prepare(car: any) {
+        return { payload: serializeCar(car) };
+      },
     },
-    setCars: (state, action: PayloadAction<Car[]>) => {
-      state.cars = action.payload;
+    removeCar(state, action: PayloadAction<string>) {
+      state.cars = state.cars.filter((c) => c.id !== action.payload);
     },
+    resetCars() {
+      return initialState;
+    },
+  },
+  extraReducers: (builder) => {
+    // Optional safety: wipe cars on logout
+    builder.addCase(clearUser, () => initialState);
   },
 });
 
-export const { addCar, removeCar, clearCars, setCars } = carSlice.actions;
+export const { setCars, addCar, updateCar, removeCar, resetCars } = carSlice.actions;
 export default carSlice.reducer;
 
 /* -------------------- Async thunks -------------------- */
-// Minimal thunk to fetch all cars for the signed-in user
-export const fetchCars =
-  () => async (dispatch: any) => {
-    try {
-      const cars = await CarService.list('-createdAt');
-      dispatch(setCars(cars));
-    } catch (e) {
-      // optional: add a toast/log here
-      console.error('Failed to fetch cars:', e);
-    }
-  };
+export const fetchCars = () => async (dispatch: any) => {
+  try {
+    const cars = await CarService.list("-createdAt");
+    dispatch(setCars(cars)); // prepare() serializes
+  } catch (e) {
+    console.error("Failed to fetch cars:", e);
+  }
+};
 
-// Optional helpers if you want async create/update/delete:
-export const createCar =
-  (car: Car) => async (dispatch: any) => {
-    const created = await CarService.create(car);
-    dispatch(addCar(created));
-  };
+export const createCar = (car: Car) => async (dispatch: any) => {
+  const created = await CarService.create(car);
+  dispatch(addCar(created)); // prepare() serializes
+};
 
-export const updateCar =
-  (id: string, patch: Partial<Car>) => async () => {
+export const patchCar =
+  (id: string, patch: Partial<Car>) => async (dispatch: any, getState: any) => {
     await CarService.update(id, patch);
+    // reflect in state (optional convenience)
+    const curr = (getState().car.cars as Car[]).find((c) => c.id === id);
+    if (curr) dispatch(updateCar({ ...curr, ...patch })); // prepare() serializes
   };
 
 export const deleteCar =

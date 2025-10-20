@@ -1,3 +1,4 @@
+import { toMillis } from "@/assets/utils/conversion";
 import { Car as CarIcon, Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -28,6 +29,20 @@ export default function CarsScreen() {
   const dispatch = useDispatch();
   const cars = useSelector((state: RootState) => state.car.cars || []);
 
+  // ---- helpers: normalize before dispatching to Redux (serializable only) ----
+  const toNumber = (n: any) =>
+    typeof n === "number" ? n : typeof n === "string" ? Number(n) || 0 : 0;
+
+  const normalizeCar = (c: any): Car => ({
+    ...c,
+    year: toNumber(c?.year),
+    fuel_efficiency: toNumber(c?.fuel_efficiency),
+    consumption_l_100km:
+      c?.consumption_l_100km == null ? null : toNumber(c.consumption_l_100km),
+    createdAt: toMillis(c?.createdAt),
+    updatedAt: toMillis(c?.updatedAt),
+  });
+
   useEffect(() => {
     loadCars();
   }, []);
@@ -37,7 +52,8 @@ export default function CarsScreen() {
       setLoading(true);
       setError(null);
       const carsData = await CarService.list("-createdAt");
-      dispatch(setCars(carsData));
+      // 🔧 serialize before dispatch
+      dispatch(setCars((carsData || []).map(normalizeCar)));
     } catch (error) {
       console.error("Error loading cars:", error);
       setError(error instanceof Error ? error.message : "Failed to load cars");
@@ -46,79 +62,78 @@ export default function CarsScreen() {
     }
   };
 
-const handleSaveCar = async (carData: Car) => {
-  setIsSaving(true);
-  try {
-    const finalCarData = {
-      ...carData,
-      fuel_efficiency: carData.fuel_efficiency || 25,
-    };
-    console.log("Final Car Data:", finalCarData);
-
-    let newCar: Car;
-
-    if (editingCar) {
-      // Update existing
-      await CarService.update(editingCar.id, finalCarData);
-      newCar = { ...editingCar, ...finalCarData };
-    } else {
-      // Create once (Firestore assigns id)
-      newCar = await CarService.create(finalCarData);
-      dispatch(addCar(newCar));
-    }
-    console.log("New/Updated Car:", newCar);
-
-    // Fetch suggested consumption
-    const fetchedConsumption = await CarService.fetchConsumption(
-      newCar.make,
-      newCar.model,
-      newCar.year
-    );
-
-    if (fetchedConsumption) {
-      // Hold car for confirmation modal
-      setPendingCar(newCar);
-      setConsumption(fetchedConsumption);
-      setShowConsumption(true);
-      setShowForm(false);
-    } else {
-      // No suggestion → just close & refresh
-      setShowForm(false);
-      setEditingCar(null);
-      loadCars();
-    }
-  } catch (error) {
-    console.error("Error saving car:", error);
-    setError(error instanceof Error ? error.message : "Failed to save car or fetch consumption");
-  } finally {
-    setIsSaving(false);
-  }
-};
-
-const handleConfirmConsumption = async (updatedCar: Car) => {
-  try {
+  const handleSaveCar = async (carData: Car) => {
     setIsSaving(true);
-    if (pendingCar && consumption != null) {
-      // Merge the confirmed consumption into the existing car
-      const delta = { ...updatedCar, consumption_l_100km: consumption };
+    try {
+      const finalCarData = {
+        ...carData,
+        fuel_efficiency: carData.fuel_efficiency || 25,
+      };
 
-      await CarService.update(pendingCar.id, delta);
+      let newCar: Car;
 
-      setShowConsumption(false);
-      setPendingCar(null);
-      setConsumption(null);
-      setEditingCar(null);
+      if (editingCar) {
+        // Update existing (persist raw to service, normalize for UI/Redux)
+        await CarService.update(editingCar.id, finalCarData);
+        newCar = normalizeCar({ ...editingCar, ...finalCarData });
+      } else {
+        // Create once (Firestore assigns id)
+        const created = await CarService.create(finalCarData);
+        newCar = normalizeCar(created);
+        dispatch(addCar(newCar)); // 🔧 add serialized car
+      }
 
-      // Reload to reflect the updated consumption
-      loadCars();
+      // Fetch suggested consumption
+      const fetchedConsumption = await CarService.fetchConsumption(
+        newCar.make,
+        newCar.model,
+        newCar.year
+      );
+
+      if (fetchedConsumption != null) {
+        // Hold car for confirmation modal
+        setPendingCar(newCar); // already normalized
+        setConsumption(fetchedConsumption);
+        setShowConsumption(true);
+        setShowForm(false);
+      } else {
+        // No suggestion → just close & refresh
+        setShowForm(false);
+        setEditingCar(null);
+        loadCars();
+      }
+    } catch (error) {
+      console.error("Error saving car:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to save car or fetch consumption"
+      );
+    } finally {
+      setIsSaving(false);
     }
-  } catch (error) {
-    console.error("Error confirming consumption:", error);
-    setError(error instanceof Error ? error.message : "Failed to confirm consumption");
-  } finally {
-    setIsSaving(false);
-  }
-};
+  };
+
+  const handleConfirmConsumption = async (updatedCar: Car) => {
+    try {
+      setIsSaving(true);
+      if (pendingCar && consumption != null) {
+        const delta = { ...updatedCar, consumption_l_100km: consumption };
+        await CarService.update(pendingCar.id, delta);
+
+        setShowConsumption(false);
+        setPendingCar(null);
+        setConsumption(null);
+        setEditingCar(null);
+
+        // Reload to reflect the updated consumption
+        loadCars();
+      }
+    } catch (error) {
+      console.error("Error confirming consumption:", error);
+      setError(error instanceof Error ? error.message : "Failed to confirm consumption");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleEditCar = (car: Car) => {
     setEditingCar(car);
@@ -195,7 +210,7 @@ const handleConfirmConsumption = async (updatedCar: Car) => {
       )}
 
       {/* Consumption Confirmation Modal */}
-      {showConsumption && pendingCar && consumption && (
+      {showConsumption && pendingCar && consumption != null && (
         <ConsumptionConfirmation
           car={pendingCar}
           consumption={consumption}
@@ -206,7 +221,7 @@ const handleConfirmConsumption = async (updatedCar: Car) => {
 
       {/* Car List */}
       {cars.length > 0 ? (
-        cars.map((car:Car) => (
+        cars.map((car: Car) => (
           <CarCard
             key={car.id}
             car={car}
