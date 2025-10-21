@@ -1,6 +1,6 @@
 // src/services/mapsApi.ts
-// Google Maps API helpers (LOCAL TESTING ONLY).
-// For production: move behind Firebase Functions and restrict the API key.
+// Client-side helpers that call your Firebase Functions proxy.
+// Your Google Maps API key stays hidden in Firebase (Secret Manager).
 
 export type LatLng = { lat: number; lng: number };
 
@@ -9,96 +9,60 @@ export type PlacePrediction = {
   place_id: string;
 };
 
-// Use Expo public env var during dev (set EXPO_PUBLIC_MAPS_API_KEY in .env)
-const MAPS_API_KEY =
-  process.env.EXPO_PUBLIC_MAPS_API_KEY || "AIzaSyB5JJrjj_JNjJ-_Al1QdGEqSWF52nhZeFw";
+// Deployed Functions base URL (set via .env for convenience)
+const FUNCTIONS_BASE =
+  process.env.EXPO_PUBLIC_FUNCTIONS_BASE_URL ||
+  "https://us-central1-cotrip-97369.cloudfunctions.net";
 
-// if (!MAPS_API_KEY || MAPS_API_KEY.includes("PASTE")) {
-//   console.warn(
-//     "[mapsApi] Missing MAPS_API_KEY. Set EXPO_PUBLIC_MAPS_API_KEY in .env for local testing."
-//   );
-// }
+async function getJSON<T>(path: string, params?: Record<string, string>) {
+  const url =
+    `${FUNCTIONS_BASE}${path}` +
+    (params ? `?${new URLSearchParams(params).toString()}` : "");
+  const res = await fetch(url);
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(`Request failed ${res.status}: ${msg || url}`);
+  }
+  return (await res.json()) as T;
+}
 
 /**
  * Autocomplete (for destination input).
- * Returns a list of predictions with description + place_id.
+ * Proxied by Firebase Function: /autocomplete
  */
-export async function autocompletePlaces(
-  input: string
-): Promise<PlacePrediction[]> {
+export async function autocompletePlaces(input: string): Promise<PlacePrediction[]> {
   if (!input.trim()) return [];
-  const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-    input
-  )}&types=geocode&key=${MAPS_API_KEY}`;
-  const res = await fetch(url);
-  const json = await res.json();
-
-  if (json.status !== "OK" && json.status !== "ZERO_RESULTS") {
-    throw new Error(json.error_message || `Places autocomplete failed: ${json.status}`);
-  }
-
-  return (json.predictions ?? []).map((p: any) => ({
-    description: p.description,
-    place_id: p.place_id,
-  }));
+  const data = await getJSON<{ predictions: PlacePrediction[] }>("/autocomplete", { input });
+  return data.predictions ?? [];
 }
 
 /**
  * Resolve a place_id → { formatted_address, lat/lng }.
+ * Proxied by: /placeDetails
  */
 export async function placeDetails(
   placeId: string
 ): Promise<{ description: string; location: LatLng }> {
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_address,geometry/location&key=${MAPS_API_KEY}`;
-  const res = await fetch(url);
-  const json = await res.json();
-
-  if (json.status !== "OK") {
-    throw new Error(json.error_message || `Place details failed: ${json.status}`);
-  }
-
-  return {
-    description: json.result.formatted_address,
-    location: json.result.geometry.location,
-  };
+  const data = await getJSON<{ formatted_address: string; location: LatLng }>(
+    "/placeDetails",
+    { placeId }
+  );
+  return { description: data.formatted_address, location: data.location };
 }
 
 /**
- * Fallback: geocode a raw address string → { formatted_address, lat/lng }.
+ * Geocode a raw address → { formatted_address, lat/lng, city? }.
+ * Proxied by: /geocode
  */
-// src/services/mapsApi.ts
 export async function geocodeAddress(
   address: string
 ): Promise<{ location: LatLng; formatted_address: string; city?: string }> {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-    address
-  )}&key=${MAPS_API_KEY}`;
-  const res = await fetch(url);
-  const json = await res.json();
-
-  if (json.status !== "OK" || !json.results?.length) {
-    const msg = json.error_message || `Geocoding failed: ${json.status}`;
-    throw new Error(msg);
-  }
-
-  const r = json.results[0];
-
-  // Extract city (locality)
-  const cityComp = r.address_components.find((c: any) =>
-    c.types.includes("locality")
-  );
-  const city = cityComp?.long_name;
-
-  return {
-    location: r.geometry.location,
-    formatted_address: r.formatted_address,
-    city,
-  };
+  return await getJSON("/geocode", { address });
 }
 
 /**
- * Directions (driving).
- * Returns distance (meters) + duration (seconds).
+ * Directions (driving) → { meters, seconds }.
+ * Proxied by: /directions
  */
 export async function getRoute(
   origin: LatLng,
@@ -106,27 +70,11 @@ export async function getRoute(
 ): Promise<{ meters: number; seconds: number }> {
   const originStr = `${origin.lat},${origin.lng}`;
   const destStr = `${destination.lat},${destination.lng}`;
-  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${encodeURIComponent(
-    originStr
-  )}&destination=${encodeURIComponent(destStr)}&mode=driving&key=${MAPS_API_KEY}`;
-
-  const res = await fetch(url);
-  const json = await res.json();
-
-  if (json.status !== "OK") {
-    throw new Error(json.error_message || `Directions failed: ${json.status}`);
-  }
-
-  const leg = json.routes?.[0]?.legs?.[0];
-  return {
-    meters: leg?.distance?.value ?? 0,
-    seconds: leg?.duration?.value ?? 0,
-  };
+  return await getJSON("/directions", { origin: originStr, destination: destStr });
 }
 
 /**
  * Convenience: full flow with free-text addresses.
- * Geocode both, then fetch route.
  */
 export async function routeByAddresses(fromText: string, toText: string) {
   const [from, to] = await Promise.all([
@@ -134,6 +82,5 @@ export async function routeByAddresses(fromText: string, toText: string) {
     geocodeAddress(toText),
   ]);
   const route = await getRoute(from.location, to.location);
-
   return { from, to, route };
 }
