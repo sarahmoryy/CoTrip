@@ -86,7 +86,7 @@ export default function TripDetails({
               className="flex-row items-center justify-center border border-gray-600 py-2 rounded-lg mb-6 ml-3 mr-3"
             >
               <Edit color="#4ade80" size={16} />
-              <Text className="ml-2 text-green-400 text-lg">Edit Locations</Text>
+              <Text className="ml-2 text-green-400 text-lg">Edit Trip</Text>
             </TouchableOpacity>
 
           </ScrollView>

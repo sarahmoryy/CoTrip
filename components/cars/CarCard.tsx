@@ -13,14 +13,18 @@ interface CarCardProps {
 export default function CarCard({ car, onEdit, onDelete }: CarCardProps) {
   return (
     <View className="bg-gray-900 rounded-xl mb-4 shadow-sm">
-      <View className="p-6">
+      <View className="p-4">
         <View className="flex-row items-start justify-between mb-4">
-          <View className="flex-row items-center gap-3">
+          <View className="flex-row items-center gap-3 flex-1">
             <View className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center">
               <CarIcon color="#9CA3AF" size={32} />
             </View>
-            <View>
-              <Text className="font-semibold text-xl text-white">
+            <View className="flex-1">
+              <Text 
+              className="font-semibold text-xl text-white"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              >
                 {car.make} {car.model}
               </Text>
               <Text className="text-gray-400 text-lg mt-1">{car.year}</Text>
@@ -29,25 +33,23 @@ export default function CarCard({ car, onEdit, onDelete }: CarCardProps) {
           <View className="flex-row gap-4">
             <TouchableOpacity
               onPress={() => onEdit(car)}
-              
             >
-              <Edit color="#9CA3AF" size={20} />
+              <Edit color="#9CA3AF" size={20} style={{marginTop: 3}}/>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => onDelete(car.id)}
-              
             >
-              <Trash2 color="#9CA3AF" size={20} />
+              <Trash2 color="#9CA3AF" size={20} style={{marginTop: 2}} />
             </TouchableOpacity>
           </View>
         </View>
 
         <View className="space-y-2">
-          <View className="flex-row justify-between">
-            <Text className="text-xl text-gray-400">
-              <Fuel color="#9CA3AF" size={18} style={{marginRight:8}}/>
-             Consumption
-            </Text>
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Fuel color="#9CA3AF" size={18} style={{ marginRight: 6 }} />
+              <Text className="text-xl text-gray-400">Consumption</Text>
+            </View>
             <Text className="text-xl font-medium text-green-400">
               {car.consumption_l_100km
                 ? `${car.consumption_l_100km} L/100km`

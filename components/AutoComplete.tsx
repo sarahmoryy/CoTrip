@@ -107,7 +107,7 @@ export default function AutocompleteInput({
       ) : null}
 
       {/* Input + clear */}
-      <View className="bg-gray-800 border border-gray-600 rounded-lg flex-row items-center">
+      <View className="h-14 bg-gray-800 border border-gray-600 rounded-lg flex-row items-center">
         <TextInput
           placeholder={placeholder}
           value={query}
