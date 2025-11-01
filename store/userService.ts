@@ -5,8 +5,8 @@ import { auth, db } from '../FirebaseConfig';
 export interface UserState {
   full_name: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone: string;
+  address: string;
 }
 
 export class UserService {

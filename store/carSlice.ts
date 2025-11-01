@@ -8,7 +8,7 @@ export interface Car {
   id: string;
   make: string;
   model: string;
-  year: number | null;
+  year: number;
   license_plate?: string;
   consumption_l_100km?: number | null;
   fuel_efficiency?: number | null;
