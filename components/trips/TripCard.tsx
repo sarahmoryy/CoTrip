@@ -30,7 +30,7 @@ export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProp
             </Text>
           </View>
           <View className="flex-row items-center">
-            <Text className="text-white text-xl">→</Text>
+            <Text className="text-white text-xl mb-1">→</Text>
             <Text className="ml-1 text-white text-xl mb-2">
               {trip.to_location_name || trip.to_location || 'Unknown'}
             </Text>
@@ -43,20 +43,20 @@ export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProp
 
       {/* Details */}
       <View className="flex-row justify-between mb-3">
-        <View className="flex-row items-center w-1/2 mb-2">
+        <View className="flex-row items-center w-1/3 mb-2">
           <Calendar color="#9CA3AF" size={17} />
           <Text className="ml-1 text-sm text-gray-400">
             {trip.date ? new Date(trip.date).toLocaleDateString() : 'N/A'}
           </Text>
         </View>
-        <View className="flex-row items-center w-1/2 mb-2">
+        <View className="flex-row items-center w-1/3 mb-2">
           <Users color="#9CA3AF" size={17} />
           <Text className="ml-1 text-sm text-gray-400">
             {trip.passengers ? `${trip.passengers} passenger${parseInt(trip.passengers) !== 1 ? 's' : ''}` : 'N/A'}
           </Text>
         </View>
         {trip.savings !== undefined && trip.savings > 0 && (
-          <View className="flex-row items-end ml-2">
+          <View className="flex-row items-center w-1/3 mb-2">
             <ShieldCheck color="#4ade80" size={17} />
             <Text className="ml-1 text-lg text-green-400">
               ${trip.savings.toFixed(2)} saved
@@ -70,8 +70,8 @@ export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProp
         <View className="flex-row items-center">
           {car && (
             <>
-              <CarIcon color="#9CA3AF" size={17} />
-              <Text className="ml-1 text-sm text-neutral-600">
+              <CarIcon color="#9CA3AF" size={20} />
+              <Text className="ml-2 text-sm text-gray-400">
                 {car.make} {car.model}
               </Text>
             </>

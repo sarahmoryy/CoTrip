@@ -237,6 +237,7 @@ export default function Trips() {
         <LocationEditor
           trip={selectedTrip}
           car={selectedCar}
+          carList={cars}
           passengers={selectedTrip.passengers ?? "1"}
           onCancel={() => {
             setShowLocationEditor(false);

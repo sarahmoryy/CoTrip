@@ -145,9 +145,9 @@ export default function SimplifiedTripForm({
 
           <View className="space-y-6">
             {/* From */}
-            <View style={{ zIndex: 60 }}>
+            <View style={{ zIndex: 60, marginBottom:8}}>
               <View className="flex-row items-center mb-2">
-                <MapPin color="#4ade80" size={18} />
+                <MapPin color="#4ade80" size={20} />
                 <Text className="ml-2 text-white text-xl">From</Text>
               </View>
 
@@ -169,9 +169,9 @@ export default function SimplifiedTripForm({
             </View>
 
             {/* To */}
-            <View style={{ zIndex: 50 }}>
+            <View style={{ zIndex: 50, marginBottom:10 }}>
               <View className="flex-row items-center mb-2">
-                <MapPin color="#4ade80" size={18} />
+                <MapPin color="#4ade80" size={20} />
                 <Text className="ml-2 text-white text-xl">To</Text>
               </View>
 
@@ -192,53 +192,55 @@ export default function SimplifiedTripForm({
               />
             </View>
 
-            <View className="flex-row space-x-4 gap-4">
-              <View className="flex-1">
-                <View className="flex-row items-center mb-2">
-                  <Users color="#4ade80" size={18} />
-                  <Text className="ml-2 text-white text-xl">Passengers</Text>
-                </View>
-
-                <View className="h-14 bg-gray-800 border border-gray-600 rounded-lg">
-                  <TextInput
-                    keyboardType="number-pad"
-                    value={form.passengers}
-                    onChangeText={(text) => setForm((f) => ({ ...f, passengers: text }))}
-                    placeholder="Number of cotripers"
-                    placeholderTextColor="#9CA3AF"
-                    style={{
-                      height: '100%',
-                      paddingVertical: 0,
-                      paddingHorizontal: 12,
-                      color: '#fff',
-                      fontSize: 16,
-                      lineHeight: 20,
-                      textAlignVertical: 'center',
-                      textAlign: 'left',
-                    }}
-                  />
-                </View>
+            {/* Passengers */}
+            <View style={{ marginBottom: 16 }}>
+              <View className="flex-row items-center mb-2">
+                <Users color="#4ade80" size={20} />
+                <Text className="ml-2 text-white text-xl">Passengers</Text>
               </View>
 
-              <View className="flex-1">
-                <View className="flex-row items-center mb-2">
-                  <CarIcon color="#4ade80" size={22} />
-                  <Text className="ml-2 text-white text-xl">Car</Text>
-                </View>
-                <View className="bg-gray-800 border border-gray-600 rounded-lg mb-6">
-                  <Picker
-                    selectedValue={form.car_id}
-                    onValueChange={(val) => setForm((f) => ({ ...f, car_id: val as string }))}
-                    style={{ color: '#fff', padding: 10, fontSize: 16 }}
-                  >
-                    <Picker.Item label="Select car" value="" />
-                    {cars.map((c) => (
-                      <Picker.Item key={c.id} label={`${c.make} ${c.model}`} value={c.id} />
-                    ))}
-                  </Picker>
-                </View>
+              <View className="h-14 bg-gray-800 border border-gray-600 rounded-lg ">
+                <TextInput
+                  keyboardType="number-pad"
+                  value={form.passengers}
+                  onChangeText={(text) => setForm((f) => ({ ...f, passengers: text }))}
+                  placeholder="Number of cotripers"
+                  placeholderTextColor="#9CA3AF"
+                  style={{
+                    height: '100%',
+                    paddingVertical: 0,
+                    paddingHorizontal: 12,
+                    color: '#fff',
+                    fontSize: 16,
+                    lineHeight: 20,
+                    textAlignVertical: 'center',
+                    textAlign: 'left',
+                  }}
+                />
               </View>
             </View>
+
+            {/* Car */}
+            <View style={{ marginBottom: 16 }}>
+              <View className="flex-row items-center mb-2">
+                <CarIcon color="#4ade80" size={22} />
+                <Text className="ml-2 text-white text-xl">Car</Text>
+              </View>
+
+              <View className="bg-gray-800 border border-gray-600 rounded-lg">
+                <Picker
+                  selectedValue={form.car_id}
+                  onValueChange={(val) => setForm((f) => ({ ...f, car_id: val as string }))}
+                  style={{ color: '#fff', padding: 10, fontSize: 16 }}
+                >
+                  <Picker.Item label="Select car" value="" />
+                  {cars.map((c) => (
+                    <Picker.Item key={c.id} label={`${c.make} ${c.model}`} value={c.id} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+
 
             {/* Submit */}
             <TouchableOpacity
