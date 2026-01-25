@@ -1,12 +1,15 @@
-import { Picker } from "@react-native-picker/picker";
 import { Car as CarIcon, X } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  FlatList,
+  Keyboard,
   Modal,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { Car } from "../../store/carSlice";
 import {
@@ -24,6 +27,8 @@ interface CarFormProps {
   isSaving: boolean;
 }
 
+type SearchType = "make" | "model" | "year" | null;
+
 export default function CarForm({
   car,
   onSave,
@@ -38,50 +43,73 @@ export default function CarForm({
     consumption_l_100km: car?.consumption_l_100km?.toString() || "",
   });
 
-  const [models, setModels] = useState<string[]>([]);
-  const [years, setYears] = useState<number[]>([]);
+  const [searchType, setSearchType] = useState<SearchType>(null);
+  const [query, setQuery] = useState("");
 
-  const [showMakePicker, setShowMakePicker] = useState(false);
-  const [showModelPicker, setShowModelPicker] = useState(false);
-  const [showYearPicker, setShowYearPicker] = useState(false);
+  /* ---------------------------------- */
+  /* SEARCH DATA SOURCES */
+  /* ---------------------------------- */
 
-  // temp states for selection before confirmation
-  const [tempMake, setTempMake] = useState(formData.make || "default");
-  const [tempModel, setTempModel] = useState(formData.model || "default");
-  const [tempYear, setTempYear] = useState(formData.year || "default");
+  const modelOptions = useMemo(
+    () => (formData.make ? CAR_MODELS[formData.make] ?? [] : []),
+    [formData.make]
+  );
 
-  // Update models when make changes
-  useEffect(() => {
-    if (!formData.make) {
-      setModels([]);
-      setFormData((prev) => ({ ...prev, model: "", year: "" }));
-      return;
+  const yearOptions = useMemo(
+    () =>
+      formData.make && formData.model
+        ? (CAR_YEARS[formData.make]?.[formData.model] ?? []).map(String)
+        : [],
+    [formData.make, formData.model]
+  );
+
+  /* ---------------------------------- */
+  /* SMART SEARCH (RANKED) */
+  /* ---------------------------------- */
+
+  const suggestions = useMemo(() => {
+    if (!searchType || !query) return [];
+
+    const list =
+      searchType === "make"
+        ? CAR_MAKES
+        : searchType === "model"
+        ? modelOptions
+        : searchType === "year"
+        ? yearOptions
+        : [];
+
+    const q = query.toLowerCase();
+
+    const startsWith: string[] = [];
+    const wordStartsWith: string[] = [];
+    const includes: string[] = [];
+
+    for (const item of list) {
+      const lower = item.toLowerCase();
+
+      if (lower.startsWith(q)) {
+        startsWith.push(item);
+      } else if (lower.split(" ").some(word => word.startsWith(q))) {
+        wordStartsWith.push(item);
+      } else if (lower.includes(q)) {
+        includes.push(item);
+      }
     }
-    const makeModels = CAR_MODELS[formData.make] ?? [];
-    setModels(makeModels);
-    setFormData((prev) => ({ ...prev, model: "", year: "" }));
-    setYears([]);
-  }, [formData.make]);
 
-  // Update years when model changes
-  useEffect(() => {
-    if (!formData.make || !formData.model) {
-      setYears([]);
-      setFormData((prev) => ({ ...prev, year: "" }));
-      return;
-    }
-    const modelYears: number[] = CAR_YEARS[formData.make]?.[formData.model] ?? [];
-    setYears(modelYears);
-    setFormData((prev) => ({ ...prev, year: "" }));
-  }, [formData.model]);
+    return [...startsWith, ...wordStartsWith, ...includes].slice(0, 5);
+  }, [searchType, query, modelOptions, yearOptions]);
 
-  // Update consumption when year changes
+  /* ---------------------------------- */
+  /* AUTO CONSUMPTION */
+  /* ---------------------------------- */
+
   useEffect(() => {
     if (!formData.make || !formData.model || !formData.year) return;
 
     const entry: VehicleEntry | undefined =
       VEHICLES[formData.make]?.[formData.model]?.find(
-        (v) => v.year === parseInt(formData.year)
+        (v) => v.year === Number(formData.year)
       );
 
     if (entry) {
@@ -92,8 +120,34 @@ export default function CarForm({
     }
   }, [formData.year]);
 
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  /* ---------------------------------- */
+  /* HELPERS */
+  /* ---------------------------------- */
+
+  const openSearch = (type: SearchType) => {
+    setQuery("");
+    setSearchType(type);
+  };
+
+  const selectValue = (value: string) => {
+    if (searchType === "make") {
+      setFormData({
+        make: value,
+        model: "",
+        year: "",
+        license_plate: "",
+        consumption_l_100km: "",
+      });
+    }
+    if (searchType === "model") {
+      setFormData((prev) => ({ ...prev, model: value, year: "" }));
+    }
+    if (searchType === "year") {
+      setFormData((prev) => ({ ...prev, year: value }));
+    }
+
+    Keyboard.dismiss();
+    setSearchType(null);
   };
 
   const handleSubmit = () => {
@@ -101,180 +155,137 @@ export default function CarForm({
       id: car?.id || "",
       make: formData.make,
       model: formData.model,
-      year: parseInt(formData.year) || 0,
+      year: Number(formData.year),
       license_plate: formData.license_plate || undefined,
-      consumption_l_100km: formData.consumption_l_100km
-        ? parseFloat(formData.consumption_l_100km)
-        : undefined,
+      consumption_l_100km: Number(formData.consumption_l_100km) || undefined,
       fuel_efficiency: car?.fuel_efficiency,
     };
     onSave(carData);
   };
 
-  const renderBottomPicker = (
-    visible: boolean,
-    onClose: () => void,
-    tempValue: string,
-    setTempValue: (value: string) => void,
-    onConfirm: () => void,
-    items: { label: string; value: string }[],
-    title: string
-  ) => (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.bottomSheet}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onConfirm}>
-              <Text style={styles.doneText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-          <Picker
-            selectedValue={tempValue}
-            onValueChange={setTempValue}
-            style={styles.picker}
-          >
-            {items.map((item) => (
-              <Picker.Item
-                key={item.value}
-                label={item.label}
-                value={item.value}
-                color={item.value === "default" ? "#9CA3AF" : "#FFF"}
-              />
-            ))}
-          </Picker>
-        </View>
-      </View>
-    </Modal>
-  );
+  /* ---------------------------------- */
+  /* UI */
+  /* ---------------------------------- */
 
   return (
-    <Modal transparent={false} visible={true} animationType="slide" onRequestClose={onCancel}>
+    <Modal visible animationType="slide">
       <View style={styles.container}>
         <View style={styles.formContainer}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <CarIcon color="#10B981" size={26} />
-              <Text style={styles.headerTitle}>{car ? "Edit Car" : "Add new car"}</Text>
+              <CarIcon size={24} color="#10B981" />
+              <Text style={styles.headerTitle}>
+                {car ? "Edit Car" : "Add new car"}
+              </Text>
             </View>
             <TouchableOpacity onPress={onCancel}>
-              <X color="#9CA3AF" size={26} />
+              <X size={24} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
 
-          {/* Car Brand */}
+          {/* Make */}
           <Text style={styles.label}>Car Brand</Text>
-          <TouchableOpacity
-            style={styles.pickerWrapper}
-            onPress={() => {
-              setTempMake(formData.make || "default");
-              setShowMakePicker(true);
-            }}
-          >
-            <Text style={{ color: formData.make ? "#FFF" : "#9CA3AF", fontSize: 16 }}>
-              {formData.make || "Select car make"}
+          <TouchableOpacity style={styles.input} onPress={() => openSearch("make")}>
+            <Text style={formData.make ? styles.value : styles.placeholder}>
+              {formData.make || "Search car brand"}
             </Text>
           </TouchableOpacity>
 
           {/* Model */}
           <Text style={styles.label}>Model</Text>
           <TouchableOpacity
-            style={[styles.pickerWrapper, !formData.make && styles.pickerDisabled]}
+            style={[styles.input, !formData.make && styles.disabled]}
             disabled={!formData.make}
-            onPress={() => {
-              setTempModel(formData.model || "default");
-              setShowModelPicker(true);
-            }}
+            onPress={() => openSearch("model")}
           >
-            <Text style={{ color: formData.model ? "#FFF" : "#9CA3AF", fontSize: 16 }}>
-              {formData.model || "Select model"}
+            <Text style={formData.model ? styles.value : styles.placeholder}>
+              {formData.model || "Search model"}
             </Text>
           </TouchableOpacity>
 
           {/* Year */}
           <Text style={styles.label}>Year</Text>
           <TouchableOpacity
-            style={[styles.pickerWrapper, !formData.model && styles.pickerDisabled]}
+            style={[styles.input, !formData.model && styles.disabled]}
             disabled={!formData.model}
-            onPress={() => {
-              setTempYear(formData.year || "default");
-              setShowYearPicker(true);
-            }}
+            onPress={() => openSearch("year")}
           >
-            <Text style={{ color: formData.year ? "#FFF" : "#9CA3AF", fontSize: 16 }}>
-              {formData.year || "Select year"}
+            <Text style={formData.year ? styles.value : styles.placeholder}>
+              {formData.year || "Search year"}
             </Text>
           </TouchableOpacity>
 
           {/* Submit */}
           <TouchableOpacity
-            onPress={handleSubmit}
             style={[
               styles.button,
-              (!formData.make || !formData.model || !formData.year) && styles.buttonDisabled,
+              (!formData.make || !formData.model || !formData.year) &&
+                styles.buttonDisabled,
             ]}
             disabled={isSaving || !formData.make || !formData.model || !formData.year}
+            onPress={handleSubmit}
           >
-            <Text style={styles.buttonText}>{isSaving ? "Loading..." : "Add"}</Text>
+            <Text style={styles.buttonText}>
+              {isSaving ? "Saving..." : "Save"}
+            </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Picker Modals */}
-        {renderBottomPicker(
-          showMakePicker,
-          () => setShowMakePicker(false),
-          tempMake,
-          setTempMake,
-          () => {
-            handleChange("make", tempMake === "default" ? "" : tempMake);
-            setShowMakePicker(false);
-          },
-          [
-            { label: "Select car make", value: "default" },
-            ...CAR_MAKES.map((m) => ({ label: m, value: m })),
-          ],
-          "Select Car Brand"
-        )}
-
-        {renderBottomPicker(
-          showModelPicker,
-          () => setShowModelPicker(false),
-          tempModel,
-          setTempModel,
-          () => {
-            handleChange("model", tempModel === "default" ? "" : tempModel);
-            setShowModelPicker(false);
-          },
-          [
-            { label: "Select model", value: "default" },
-            ...models.map((m) => ({ label: m, value: m })),
-          ],
-          "Select Model"
-        )}
-
-        {renderBottomPicker(
-          showYearPicker,
-          () => setShowYearPicker(false),
-          tempYear,
-          setTempYear,
-          () => {
-            handleChange("year", tempYear === "default" ? "" : tempYear);
-            setShowYearPicker(false);
-          },
-          [
-            { label: "Select year", value: "default" },
-            ...years.map((y) => ({ label: y.toString(), value: y.toString() })),
-          ],
-          "Select Year"
-        )}
       </View>
+
+      {/* SEARCH MODAL */}
+      <Modal transparent visible={!!searchType} animationType="fade">
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.searchContainer}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => setSearchType(null)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Search</Text>
+                <TouchableOpacity onPress={() => setSearchType(null)}>
+                  <Text style={styles.doneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                autoFocus
+                placeholder="Type to search..."
+                placeholderTextColor="#9CA3AF"
+                style={styles.searchInput}
+                blurOnSubmit={false}
+              />
+
+              {suggestions.length === 0 ? (
+                <Text style={styles.noResults}>No results found</Text>
+              ) : (
+                <FlatList
+                  data={suggestions}
+                  keyExtractor={(item) => item}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.suggestionItem}
+                      onPress={() => selectValue(item)}
+                    >
+                      <Text style={styles.suggestionText}>{item}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </Modal>
   );
 }
+
+/* ---------------------------------- */
+/* STYLES */
+/* ---------------------------------- */
 
 const styles = StyleSheet.create({
   container: {
@@ -292,68 +303,76 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderBottomColor: "#374151",
     borderBottomWidth: 1,
+    borderBottomColor: "#374151",
     paddingBottom: 12,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitle: { color: "#FFF", fontSize: 20, fontWeight: "700", marginLeft: 8 },
-  label: { color: "#FFF", fontSize: 16, fontWeight: "600", marginTop: 16, marginBottom: 6 },
-  pickerWrapper: {
+  headerTitle: { color: "#FFF", fontSize: 20, fontWeight: "700" },
+
+  label: { color: "#FFF", fontSize: 16, fontWeight: "600", marginTop: 16 },
+  input: {
     backgroundColor: "#111827",
-    borderColor: "#374151",
-    borderWidth: 1,
     borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    justifyContent: "center",
+    padding: 14,
+    marginTop: 6,
   },
-  pickerDisabled: {
-    opacity: 0.4,
-  },
-  picker: {
-    color: "#FFF",
-    fontSize: 16,
-  },
+  placeholder: { color: "#9CA3AF", fontSize: 16 },
+  value: { color: "#FFF", fontSize: 16 },
+  disabled: { opacity: 0.4 },
+
   button: {
     backgroundColor: "#10B981",
+    padding: 14,
     borderRadius: 10,
-    paddingVertical: 14,
     marginTop: 24,
     alignItems: "center",
   },
-  buttonDisabled: {
-    backgroundColor: "#6B7280",
-  },
-  buttonText: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "600",
-  },
+  buttonDisabled: { backgroundColor: "#6B7280" },
+  buttonText: { color: "#FFF", fontSize: 18, fontWeight: "600" },
+
   modalOverlay: {
     flex: 1,
-    justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  bottomSheet: {
-    backgroundColor: "#1F2937",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 30,
+  searchContainer: {
+    width: "92%",
+    maxHeight: "60%",
+    backgroundColor: "#0F1724",
+    borderRadius: 18,
+    overflow: "hidden",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#374151",
+    borderBottomColor: "#1F2937",
   },
-  modalTitle: {
+  modalTitle: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  cancelText: { color: "#9CA3AF" },
+  doneText: { color: "#10B981" },
+
+  searchInput: {
+    backgroundColor: "#111827",
+    margin: 16,
+    borderRadius: 10,
+    padding: 14,
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "600",
   },
-  cancelText: { color: "#9CA3AF", fontSize: 16 },
-  doneText: { color: "#10B981", fontSize: 16 },
+  suggestionItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1F2937",
+  },
+  suggestionText: { color: "#FFF", fontSize: 16 },
+  noResults: {
+    color: "#9CA3AF",
+    textAlign: "center",
+    marginVertical: 24,
+  },
 });
