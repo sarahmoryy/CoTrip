@@ -1,14 +1,7 @@
 // app/(tabs)/savings.tsx
 import { DollarSign, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSelector } from 'react-redux';
 import { selectTotalSavingsFromTrips, selectTrips, Trip } from '../../store/tripSlice';
 
@@ -30,8 +23,12 @@ function monthKeyFromDateStr(dateStr?: string): string | null {
   return `${y}-${m}`;
 }
 
-function monthLabelShort(key: string): string {
-  // key = "YYYY-MM"
+function monthLabelShortFromIndex(i: number) {
+  const names = ['J','F','M','A','M','J','J','A','S','O','N','D']; // Apple-style compact
+  return names[i] ?? '';
+}
+
+function monthLabelLong(key: string) {
   const [, mStr] = key.split('-');
   const m = Number(mStr);
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -55,16 +52,14 @@ export default function SavingsScreen() {
       if (!key) continue;
       set.add(Number(key.split('-')[0]));
     }
-    const arr = Array.from(set).sort((a, b) => b - a); // newest first
+    const arr = Array.from(set).sort((a, b) => b - a);
     if (arr.length === 0) arr.push(new Date().getFullYear());
     return arr;
   }, [trips]);
 
-  // Selected year (default to newest year)
   const [selectedYear, setSelectedYear] = useState<number>(availableYears[0]);
   const [yearOpen, setYearOpen] = useState(false);
 
-  // Keep selectedYear valid if trips load later
   useEffect(() => {
     if (!availableYears.includes(selectedYear)) {
       setSelectedYear(availableYears[0]);
@@ -92,11 +87,24 @@ export default function SavingsScreen() {
       return { key: k, value: Number(totals.get(k) ?? 0) };
     });
 
-    const maxV = Math.max(1, ...arr.map(b => b.value));
+    const maxV = Math.max(1, ...arr.map((b) => b.value));
     const total = arr.reduce((sum, b) => sum + b.value, 0);
 
     return { bars: arr, maxValue: maxV, yearTotal: total };
   }, [trips, selectedYear]);
+
+  // Apple Health style: tap bar to show detail
+  const [selectedBarKey, setSelectedBarKey] = useState<string | null>(null);
+
+  // Keep selection valid when year changes
+  useEffect(() => {
+    setSelectedBarKey(null);
+  }, [selectedYear]);
+
+  const selectedBar = useMemo(() => {
+    if (!selectedBarKey) return null;
+    return bars.find((b) => b.key === selectedBarKey) ?? null;
+  }, [bars, selectedBarKey]);
 
   if (loading && (trips as any[]).length === 0) {
     return (
@@ -105,6 +113,13 @@ export default function SavingsScreen() {
       </View>
     );
   }
+
+  // Chart sizing (Apple Health vibes)
+  const CHART_H = 160;
+  const BAR_W = 12;          // slim bars
+  const BAR_GAP = 10;        // spacing between bars
+  const MIN_BAR_H = 3;       // make tiny values visible
+  const TOP_PAD = 10;
 
   return (
     <ScrollView className="flex-1 bg-black" contentContainerClassName="px-5 pb-10">
@@ -131,7 +146,7 @@ export default function SavingsScreen() {
         </View>
       </View>
 
-      {/* Savings History card (small dropdown inside same component) */}
+      {/* Savings History card */}
       <View className="bg-gray-900 rounded-xl p-5">
         {/* Title row + small dropdown */}
         <View className="flex-row items-center justify-between mb-3">
@@ -146,30 +161,76 @@ export default function SavingsScreen() {
           </Pressable>
         </View>
 
-        {/* Bars */}
-        <View>
-          {bars.map(({ key, value }) => {
-            const pct = Math.max(0.03, value / maxValue);
-            return (
-              <View key={key} className="mb-3">
-                <View className="flex-row justify-between mb-1">
-                  <Text className="text-gray-300">{monthLabelShort(key)}</Text>
-                  <Text className="text-green-400 font-semibold">{fmt(value)}</Text>
-                </View>
-
-                <View className="h-3 w-full bg-gray-700 rounded-full overflow-hidden">
-                  <View
-                    style={{ width: `${pct * 100}%` }}
-                    className="h-full bg-green-500 rounded-full"
-                  />
-                </View>
-              </View>
-            );
-          })}
+        {/* Selected month readout (Apple Health style) */}
+        <View className="mb-3">
+          <Text className="text-gray-400 font-semibold">
+            {selectedBar
+              ? `${monthLabelLong(selectedBar.key)} ${selectedYear}`
+              : `Tap a month`}
+          </Text>
+          <Text className="text-white text-2xl font-bold">
+            {selectedBar ? fmt(selectedBar.value) : fmt(yearTotal)}
+          </Text>
+          {!selectedBar && (
+            <Text className="text-gray-500">Showing {selectedYear} total</Text>
+          )}
         </View>
 
-        {/* Year total at bottom (inside same component) */}
-        <View className="mt-2 pt-3 border-t border-gray-800 flex-row justify-between">
+        {/* Vertical bar chart */}
+        <View className="bg-gray-950/40 rounded-2xl p-4">
+          {/* Chart area */}
+          <View style={{ height: CHART_H + TOP_PAD }} className="justify-end">
+            {/* baseline */}
+            <View className="absolute left-0 right-0 bottom-0 h-[1px] bg-gray-700/70" />
+
+            <View className="flex-row items-end justify-between">
+              {bars.map(({ key, value }, idx) => {
+                const raw = value / maxValue;
+                const h =
+                  value === 0 ? 0 : Math.max(MIN_BAR_H, Math.round(raw * CHART_H));
+
+                const active = selectedBarKey === key;
+
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => setSelectedBarKey((prev) => (prev === key ? null : key))}
+                    style={{ width: BAR_W + BAR_GAP, alignItems: 'center' }}
+                  >
+                    {/* bar */}
+                    <View
+                      className={[
+                        'rounded-full',
+                        active ? 'bg-green-400' : 'bg-green-500',
+                      ].join(' ')}
+                      style={{
+                        width: BAR_W,
+                        height: h,
+                        opacity: value === 0 ? 0.35 : 1,
+                      }}
+                    />
+
+                    {/* tiny non-zero indicator dot (super minimal) */}
+                    {value > 0 && (
+                      <View
+                        className="bg-green-200/35 rounded-full mt-1"
+                        style={{ width: 2, height: 2 }}
+                      />
+                    )}
+
+                    {/* month label */}
+                    <Text className="text-gray-500 mt-2 text-xs">
+                      {monthLabelShortFromIndex(idx)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* Year total at bottom */}
+        <View className="mt-4 pt-3 border-t border-gray-800 flex-row justify-between">
           <Text className="text-gray-400 font-semibold">{selectedYear} total</Text>
           <Text className="text-green-400 font-bold">{fmt(yearTotal)}</Text>
         </View>
