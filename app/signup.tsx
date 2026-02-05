@@ -107,6 +107,7 @@ export default function SignupScreen() {
                 placeholder="Enter password"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
+                textContentType="oneTimeCode"
                 style={{
                   flex: 1,
                   color: '#fff',
@@ -133,6 +134,7 @@ export default function SignupScreen() {
                 placeholder="Confirm password"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
+                textContentType="oneTimeCode"
                 style={{
                   flex: 1,
                   color: '#fff',
