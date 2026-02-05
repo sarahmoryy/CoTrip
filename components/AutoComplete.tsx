@@ -106,29 +106,46 @@ export default function AutocompleteInput({
         </View>
       ) : null}
 
-      {/* Input + clear */}
-      <View className="h-14 bg-gray-800 border border-gray-600 rounded-lg flex-row items-center">
-        <TextInput
-          placeholder={placeholder}
-          value={query}
-          onChangeText={handleChange}
-          placeholderTextColor="#9CA3AF"
-          style={{
-            flex: 1,
-            height: 56,
-            paddingHorizontal: 12,
-            color: '#fff',
-            fontSize: 16,
-            lineHeight: 20,
-            textAlignVertical: 'center',
-          }}
-        />
-        {query ? (
-          <TouchableOpacity onPress={clearInput} className="px-3 py-2">
-            <Text className="text-gray-300">Clear</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
+<View
+  className="bg-gray-800 border border-gray-600 rounded-lg flex-row items-center"
+  style={{
+    height: 56,
+    overflow: 'hidden',
+  }}
+>
+  <TextInput
+    value={query}
+    onChangeText={handleChange}
+    placeholder={placeholder}
+    placeholderTextColor="#9CA3AF"
+
+    multiline={false}
+    numberOfLines={1}
+    scrollEnabled={true}   // 👈 important on Android
+
+    style={{
+      flex: 1,
+      height: 56,          // 👈 hard lock
+      maxHeight: 56,       // 👈 hard lock
+      paddingHorizontal: 12,
+
+      fontSize: 16,
+      lineHeight: 16,      // 👈 MUST be <= fontSize
+      color: '#fff',
+
+      includeFontPadding: false,
+      textAlignVertical: 'center',
+    }}
+  />
+
+  {query ? (
+    <TouchableOpacity onPress={clearInput} className="px-3 py-2">
+      <Text className="text-gray-300">Clear</Text>
+    </TouchableOpacity>
+  ) : null}
+</View>
+
+
 
       {loading ? (
         <View className="mt-2">
