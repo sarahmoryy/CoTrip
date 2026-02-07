@@ -15,14 +15,15 @@ export default function LoginScreen() {
   const dispatch = useDispatch();
 
   const signin = async () => {
-    console.log("TEST");
     try {
-      const user = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      console.log(user);
-      if (user) router.replace('/(tabs)/home');
+      setLoading(true);
+      const userCred = await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
+      if (userCred?.user) router.replace('/(tabs)/home');
     } catch (error: any) {
       console.log(error);
-      alert('sign in error' + error);
+      alert('sign in error: ' + (error?.message ?? String(error)));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,20 +47,17 @@ export default function LoginScreen() {
               <Mail color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.email}
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                onChangeText={(text) => setFormData((p) => ({ ...p, email: text }))}
                 placeholder="Enter email"
                 placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
                 autoCapitalize="none"
-                style={{
-                  flex: 1,
-                  color: '#fff',
-                  fontSize: 18,
-                  lineHeight: 22,
-                  height: '100%',
-                  paddingVertical: 0,
-                  textAlignVertical: 'center',
-                }}
+                autoCorrect={false}
+                spellCheck={false}
+                textContentType="emailAddress"
+                autoComplete="email"
+                importantForAutofill="yes"
+                style={{ flex: 1, color: '#fff', fontSize: 18, lineHeight: 22, height: '100%', paddingVertical: 0 }}
               />
             </View>
           </View>
@@ -71,20 +69,18 @@ export default function LoginScreen() {
               <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
               <TextInput
                 value={formData.password}
-                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                onChangeText={(text) => setFormData((p) => ({ ...p, password: text }))}
                 placeholder="Enter password"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
-                style={{
-                  flex: 1,
-                  color: '#fff',
-                  fontSize: 18,
-                  lineHeight: 22,
-                  height: '100%',
-                  paddingVertical: 0,
-                  textAlignVertical: 'center',
-                }}
+                autoCorrect={false}
+                spellCheck={false}
+                textContentType="password"
+                autoComplete="password"
+                importantForAutofill="yes"
+                style={{ flex: 1, color: '#fff', fontSize: 18, lineHeight: 22, height: '100%', paddingVertical: 0 }}
               />
+
             </View>
           </View>
 
