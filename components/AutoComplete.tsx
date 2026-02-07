@@ -44,7 +44,6 @@ export default function AutocompleteInput({
     setError(null);
     try {
       const preds = await autocompletePlaces(trimmed);
-      // ignore stale responses
       if (myReq !== reqCounter.current) return;
       setPredictions(preds);
     } catch (e: any) {
@@ -60,7 +59,6 @@ export default function AutocompleteInput({
 
   useEffect(() => {
     return () => {
-      // cleanup debounce on unmount to avoid setState after unmount
       debouncedFetch.cancel();
     };
   }, [debouncedFetch]);
@@ -97,6 +95,9 @@ export default function AutocompleteInput({
     }
   };
 
+  // ⭐ Keep the dropdown from getting huge (prevents needing inner scrolling)
+  const visiblePredictions = useMemo(() => predictions.slice(0, 6), [predictions]);
+
   return (
     <View style={{ zIndex: 50 /* helps Android overlay the list */ }}>
       {/* Label */}
@@ -106,46 +107,40 @@ export default function AutocompleteInput({
         </View>
       ) : null}
 
-<View
-  className="bg-gray-800 border border-gray-600 rounded-lg flex-row items-center"
-  style={{
-    height: 56,
-    overflow: 'hidden',
-  }}
->
-  <TextInput
-    value={query}
-    onChangeText={handleChange}
-    placeholder={placeholder}
-    placeholderTextColor="#9CA3AF"
+      <View
+        className="bg-gray-800 border border-gray-600 rounded-lg flex-row items-center"
+        style={{
+          height: 56,
+          overflow: 'hidden',
+        }}
+      >
+        <TextInput
+          value={query}
+          onChangeText={handleChange}
+          placeholder={placeholder}
+          placeholderTextColor="#9CA3AF"
+          multiline={false}
+          numberOfLines={1}
+          scrollEnabled={true} // ok for TextInput
+          style={{
+            flex: 1,
+            height: 56,
+            maxHeight: 56,
+            paddingHorizontal: 12,
+            fontSize: 16,
+            lineHeight: 16,
+            color: '#fff',
+            includeFontPadding: false,
+            textAlignVertical: 'center',
+          }}
+        />
 
-    multiline={false}
-    numberOfLines={1}
-    scrollEnabled={true}   // 👈 important on Android
-
-    style={{
-      flex: 1,
-      height: 56,          // 👈 hard lock
-      maxHeight: 56,       // 👈 hard lock
-      paddingHorizontal: 12,
-
-      fontSize: 16,
-      lineHeight: 16,      // 👈 MUST be <= fontSize
-      color: '#fff',
-
-      includeFontPadding: false,
-      textAlignVertical: 'center',
-    }}
-  />
-
-  {query ? (
-    <TouchableOpacity onPress={clearInput} className="px-3 py-2">
-      <Text className="text-gray-300">Clear</Text>
-    </TouchableOpacity>
-  ) : null}
-</View>
-
-
+        {query ? (
+          <TouchableOpacity onPress={clearInput} className="px-3 py-2">
+            <Text className="text-gray-300">Clear</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       {loading ? (
         <View className="mt-2">
@@ -157,20 +152,24 @@ export default function AutocompleteInput({
         <Text className="text-red-400 mt-2">{error}</Text>
       ) : null}
 
-      {!loading && predictions.length > 0 && (
-        <View className="mt-2 bg-gray-800 border border-gray-700 rounded-lg max-h-56">
+      {!loading && visiblePredictions.length > 0 && (
+        <View className="mt-2 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
           <FlatList
             keyboardShouldPersistTaps="handled"
-            data={predictions}
+            data={visiblePredictions}
             keyExtractor={(it) => it.place_id}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <TouchableOpacity
-                className="p-3 border-b border-gray-700"
+                className={`p-3 ${index !== visiblePredictions.length - 1 ? 'border-b border-gray-700' : ''}`}
                 onPress={() => pickItem(item.place_id)}
               >
                 <Text className="text-white">{item.description}</Text>
               </TouchableOpacity>
             )}
+            // ⭐ THE FIX: make inner list NOT scrollable
+            scrollEnabled={false}
+            // ⭐ Helps dropdown rendering/zIndex issues in nested containers
+            removeClippedSubviews={false}
           />
         </View>
       )}
