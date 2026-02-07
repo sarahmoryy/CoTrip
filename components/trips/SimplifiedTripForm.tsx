@@ -44,16 +44,10 @@ export default function SimplifiedTripForm({
     car_id: "",
   });
 
-  const [originCoords, setOriginCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const [originCoords, setOriginCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [originResolved, setOriginResolved] = useState<string>("");
 
-  const [destCoords, setDestCoords] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [destResolved, setDestResolved] = useState<string>("");
 
   const [localBusy, setLocalBusy] = useState(false);
@@ -145,13 +139,14 @@ export default function SimplifiedTripForm({
               {/* Form */}
               <View className="space-y-6">
                 {/* From */}
-                <View style={{ zIndex: 60 }}>
+                <View style={{ zIndex: 60 }} className="mb-1">
                   <View className="flex-row items-center mb-2">
                     <MapPin color="#4ade80" size={20} />
                     <Text className="ml-2 text-white text-xl">From</Text>
                   </View>
 
                   <AutocompleteInput
+                    label={undefined}
                     placeholder="Search starting point"
                     initialText={form.from_location}
                     onTextChange={(text) => {
@@ -168,13 +163,14 @@ export default function SimplifiedTripForm({
                 </View>
 
                 {/* To */}
-                <View style={{ zIndex: 50 }}>
+                <View style={{ zIndex: 50 }} className="mb-1">
                   <View className="flex-row items-center mb-2">
                     <MapPin color="#4ade80" size={20} />
                     <Text className="ml-2 text-white text-xl">To</Text>
                   </View>
 
                   <AutocompleteInput
+                    label={undefined}
                     placeholder="Search destination"
                     initialText={form.to_location}
                     onTextChange={(text) => {
@@ -191,7 +187,7 @@ export default function SimplifiedTripForm({
                 </View>
 
                 {/* Passengers */}
-                <View>
+                <View className="mb-1">
                   <View className="flex-row items-center mb-2">
                     <Users color="#4ade80" size={20} />
                     <Text className="ml-2 text-white text-xl">Passengers</Text>
@@ -218,7 +214,7 @@ export default function SimplifiedTripForm({
                 </View>
 
                 {/* Car */}
-                <View style={{ marginBottom: 16 }}>
+                <View className="mb-2">
                   <View className="flex-row items-center mb-2">
                     <CarIcon color="#4ade80" size={22} />
                     <Text className="ml-2 text-white text-xl">Car</Text>
@@ -241,11 +237,7 @@ export default function SimplifiedTripForm({
                       style={{ color: "#ffffff" }}
                       itemStyle={{ color: "#ffffff", fontSize: 16 }}
                     >
-                      <Picker.Item
-                        label="Select car"
-                        value=""
-                        color="#9CA3AF"
-                      />
+                      <Picker.Item label="Select car" value="" color="#9CA3AF" />
                       {cars.map((c) => (
                         <Picker.Item
                           key={c.id}
@@ -264,7 +256,7 @@ export default function SimplifiedTripForm({
                   className={`rounded-lg py-3 ${
                     canSubmit ? "bg-main" : "bg-gray-300"
                   } items-center`}
-                  style={{ marginBottom: 8 }} // small extra breathing room
+                  style={{ marginBottom: 8 }}
                 >
                   {isCalculating || localBusy ? (
                     <ActivityIndicator color="white" />
