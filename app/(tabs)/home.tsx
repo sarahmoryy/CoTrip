@@ -1,9 +1,24 @@
 import { toMillis } from "@/assets/utils/conversion";
-import { endOfMonth, endOfWeek, format, isWithinInterval, startOfMonth, startOfWeek } from "date-fns";
+import {
+  endOfMonth,
+  endOfWeek,
+  format,
+  isWithinInterval,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Car as CarIcon, DollarSign, PlusIcon } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { CarService, TripService, UserService } from "../../store/all";
 import { setCars } from "../../store/carSlice";
@@ -24,15 +39,13 @@ const toNumber = (n: any) =>
   typeof n === "number" ? n : typeof n === "string" ? Number(n) || 0 : 0;
 
 // ✅ Serialize any Firestore Timestamp/Date/string -> milliseconds (number)
-
-
 const parseTripDate = (input: any): Date => {
   if (!input) return new Date(0);
   if (input instanceof Date) return input;
-  if (typeof input === "number") return new Date(input); // ms from toMillis
+  if (typeof input === "number") return new Date(input);
   if (typeof input === "string") return new Date(input);
   if (typeof input === "object" && "seconds" in input)
-    return new Date(input.seconds * 1000); // fallback if something slipped through
+    return new Date(input.seconds * 1000);
   return new Date(0);
 };
 
@@ -48,6 +61,8 @@ export default function HomeScreen() {
   const [user, setUser] = useState<UserState | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [bootLoading, setBootLoading] = useState(true);
+  const [tripsThisWeekRowHeight, setTripsThisWeekRowHeight] =
+    useState<number>(0);
 
   // Fetch data
   const fetchAll = useCallback(async () => {
@@ -64,7 +79,6 @@ export default function HomeScreen() {
       if (tripsData) {
         const tripsSerialized = tripsData.map((t: any) => ({
           ...t,
-          // normalize date-ish fields to ms (numbers)
           date: toMillis(t.date),
           createdAt: toMillis(t.createdAt),
           updatedAt: toMillis(t.updatedAt),
@@ -76,7 +90,7 @@ export default function HomeScreen() {
       if (carsData) {
         const carsSerialized = carsData.map((c: any) => ({
           ...c,
-          createdAt: toMillis(c.createdAt), // 🔧 fixes RTK serializable warning
+          createdAt: toMillis(c.createdAt),
           updatedAt: toMillis(c.updatedAt),
           year: toNumber(c.year),
         }));
@@ -95,7 +109,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchAll();
-    }, [fetchAll])
+    }, [fetchAll]),
   );
 
   // Derived metrics
@@ -108,31 +122,38 @@ export default function HomeScreen() {
   const tripsThisMonth = useMemo(
     () =>
       trips.filter((t) =>
-        isWithinInterval(parseTripDate(t.date), { start: monthStart, end: monthEnd })
+        isWithinInterval(parseTripDate(t.date), {
+          start: monthStart,
+          end: monthEnd,
+        }),
       ),
-    [trips]
+    [trips],
   );
 
   const monthlySavings = useMemo(
     () => tripsThisMonth.reduce((sum, t) => sum + toNumber(t.savings), 0),
-    [tripsThisMonth]
+    [tripsThisMonth],
   );
 
   const totalSavings = useMemo(
     () => trips.reduce((sum, t) => sum + toNumber(t.savings), 0),
-    [trips]
+    [trips],
   );
 
   const tripsThisWeek = useMemo(
     () =>
       trips
         .filter((t) =>
-          isWithinInterval(parseTripDate(t.date), { start: weekStart, end: weekEnd })
+          isWithinInterval(parseTripDate(t.date), {
+            start: weekStart,
+            end: weekEnd,
+          }),
         )
         .sort(
-          (a, b) => parseTripDate(b.date).getTime() - parseTripDate(a.date).getTime()
+          (a, b) =>
+            parseTripDate(b.date).getTime() - parseTripDate(a.date).getTime(),
         ),
-    [trips]
+    [trips],
   );
 
   if (bootLoading) {
@@ -146,12 +167,18 @@ export default function HomeScreen() {
   return (
     <ScrollView
       className="flex-1 bg-black p-5"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchAll} />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={fetchAll} />
+      }
     >
       {/* Header */}
       <View className="items-center mb-6">
         <View className="bg-main w-24 h-24 rounded-full justify-center items-center mb-8 mt-16">
-          <Image source={logoIcon} style={{ width: 52, height: 52 }} resizeMode="contain" />
+          <Image
+            source={logoIcon}
+            style={{ width: 52, height: 52 }}
+            resizeMode="contain"
+          />
         </View>
         <Text className="text-white text-4xl font-bold mb-5">
           Hello {user?.full_name || ""},
@@ -161,7 +188,8 @@ export default function HomeScreen() {
           {currency.format(monthlySavings)}
         </Text>
         <Text className="text-gray-400 text-2xl mb-2">
-          with {tripsThisMonth.length} CoTrip{tripsThisMonth.length === 1 ? "" : "s"} this month
+          with {tripsThisMonth.length} CoTrip
+          {tripsThisMonth.length === 1 ? "" : "s"} this month
         </Text>
       </View>
 
@@ -176,7 +204,9 @@ export default function HomeScreen() {
         </View>
         <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center mb-5">
           <CarIcon color="#10B981" size={32} />
-          <Text className="text-white text-2xl font-bold mt-2">{cars.length}</Text>
+          <Text className="text-white text-2xl font-bold mt-2">
+            {cars.length}
+          </Text>
           <Text className="text-gray-400 text-xl mt-1">Your Cars</Text>
         </View>
       </View>
@@ -184,24 +214,49 @@ export default function HomeScreen() {
       {/* This Week */}
       <View className="bg-gray-900 rounded-xl p-4 mb-2">
         <Text className="text-white text-xl font-bold mb-3">This week</Text>
+
         {tripsThisWeek.length > 0 ? (
-          tripsThisWeek.slice(0, 5).map((trip) => {
-            const d = parseTripDate(trip.date);
-            return (
-              <View key={trip.id} className="flex-row justify-between items-center mb-3">
-                <View className="flex-1 pr-3">
-                  <Text className="text-white">{format(d, "EEE, MMM d")}:</Text>
-                  <Text className="text-gray-400 text-sm" numberOfLines={1}>
-                    From {trip.from_location_name || trip.from_location} →{" "}
-                    {trip.to_location_name || trip.to_location}
-                  </Text>
-                </View>
-                <Text className="text-main font-semibold">
-                  {currency.format(toNumber(trip.savings))}
-                </Text>
-              </View>
-            );
-          })
+          <View
+            style={{
+              maxHeight: tripsThisWeekRowHeight * 5 || 300, // dynamically 5 rows
+            }}
+          >
+            <ScrollView
+              contentContainerStyle={{ paddingVertical: 4 }}
+              showsVerticalScrollIndicator={true}
+            >
+              {tripsThisWeek.map((trip, index) => {
+                const d = parseTripDate(trip.date);
+                return (
+                  <View
+                    key={trip.id}
+                    className="flex-row justify-between items-center mb-3"
+                    onLayout={(e) => {
+                      // Measure the first row only
+                      if (index === 0 && !tripsThisWeekRowHeight) {
+                        setTripsThisWeekRowHeight(
+                          e.nativeEvent.layout.height + 3,
+                        ); // include marginBottom
+                      }
+                    }}
+                  >
+                    <View className="flex-1 pr-3">
+                      <Text className="text-white">
+                        {format(d, "EEE, MMM d")}:
+                      </Text>
+                      <Text className="text-gray-400 text-sm" numberOfLines={1}>
+                        From {trip.from_location_name || trip.from_location} →{" "}
+                        {trip.to_location_name || trip.to_location}
+                      </Text>
+                    </View>
+                    <Text className="text-main font-semibold">
+                      {currency.format(toNumber(trip.savings))}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
         ) : (
           <Text className="text-gray-400 text-lg">No trips yet this week</Text>
         )}
@@ -214,7 +269,9 @@ export default function HomeScreen() {
           onPress={() => router.push("/(tabs)/trips")}
         >
           <PlusIcon className="w-5 h-5 mr-5" color="white" />
-          <Text className="text-white text-xl ml-3 font-semibold">New Trip</Text>
+          <Text className="text-white text-xl ml-3 font-semibold">
+            New Trip
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           className="flex-1 flex-row items-center justify-center px-1 py-3 bg-main rounded-lg ml-3"
