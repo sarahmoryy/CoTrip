@@ -1,18 +1,30 @@
-import { Calendar, Car as CarIcon, MapPin, ShieldCheck, Trash2, Users } from 'lucide-react-native';
-import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { Car } from '../../store/carSlice';
-import { Trip } from '../../store/tripSlice';
+import {
+  Calendar,
+  Car as CarIcon,
+  MapPin,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from "lucide-react-native";
+import React from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import { Car } from "../../store/carSlice";
+import { Trip } from "../../store/tripSlice";
 
 interface TripCardProps {
   trip: Trip;
   cars: Car[];
   onClick: () => void;
-  onDelete: (tripId: string) => void; 
+  onDelete: (tripId: string) => void;
 }
 
-export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProps) {
-  console.log("TripCard props:", { trip, cars }); 
+export default function TripCard({
+  trip,
+  cars,
+  onClick,
+  onDelete,
+}: TripCardProps) {
+  console.log("TripCard props:", { trip, cars });
   const car = cars.find((c) => c.id === trip.car_id);
 
   return (
@@ -21,22 +33,39 @@ export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProp
       className="bg-gray-900 rounded-xl shadow p-4 mb-4"
     >
       {/* Header */}
-      <View className="flex-row justify-between mb-3">
-        <View className="pr-2">
+      <View className="flex-row items-start justify-between mb-3">
+        {/* LEFT: allow shrinking */}
+        <View className="flex-1 pr-2">
           <View className="flex-row items-center mb-1">
             <MapPin color="#4ade80" size={20} />
-            <Text className="ml-1 font-medium text-white text-xl">
-              {trip.from_location_name || trip.from_location || 'Unknown'}
+            <Text
+              className="ml-1 font-medium text-white text-xl"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {trip.from_location_name || trip.from_location || "Unknown"}
             </Text>
           </View>
+
           <View className="flex-row items-center">
-            <Text className="text-white text-xl mb-1">→</Text>
-            <Text className="ml-1 text-white text-xl mb-2">
-              {trip.to_location_name || trip.to_location || 'Unknown'}
+            <Text className="text-white text-xl">→</Text>
+            <Text
+              className="ml-1 text-white text-xl"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {trip.to_location_name || trip.to_location || "Unknown"}
             </Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => onDelete(trip.id)}>
+
+        {/* RIGHT: keep icon inside */}
+        <TouchableOpacity
+          onPress={() => onDelete(trip.id)}
+          className="ml-2"
+          style={{ flexShrink: 0 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Trash2 color="#9CA3AF" size={20} />
         </TouchableOpacity>
       </View>
@@ -46,13 +75,17 @@ export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProp
         <View className="flex-row items-center w-1/3 mb-2">
           <Calendar color="#9CA3AF" size={17} />
           <Text className="ml-1 text-sm text-gray-400">
-            {trip.date ? new Date(trip.date).toLocaleDateString() : 'N/A'}
+            {trip.date ? new Date(trip.date).toLocaleDateString() : "N/A"}
           </Text>
         </View>
         <View className="flex-row items-center w-1/3 mb-2">
           <Users color="#9CA3AF" size={17} />
           <Text className="ml-1 text-sm text-gray-400">
-            {trip.passengers ? `${trip.passengers} passenger${parseInt(trip.passengers) !== 1 ? 's' : ''}` : 'N/A'}
+            {trip.passengers
+              ? `${trip.passengers} passenger${
+                  parseInt(trip.passengers) !== 1 ? "s" : ""
+                }`
+              : "N/A"}
           </Text>
         </View>
         {trip.savings !== undefined && trip.savings > 0 && (
