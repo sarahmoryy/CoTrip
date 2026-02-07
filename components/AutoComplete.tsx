@@ -15,7 +15,7 @@ type Props = {
 };
 
 export default function AutocompleteInput({
-  label = 'Destination',
+  label = '',
   placeholder = 'Type a place or address',
   initialText = '',
   minChars = 2,
