@@ -25,9 +25,10 @@ import { setCars } from "../../store/carSlice";
 import { RootState } from "../../store/store";
 import { setTrips } from "../../store/tripSlice";
 import { UserState } from "../../store/userSlice";
+
 const logoIcon = require("../../assets/images/Car_Auto.png");
 
-// ✅ CAD currency formatter (always show cents)
+// CAD currency formatter
 const currency = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
@@ -38,7 +39,6 @@ const currency = new Intl.NumberFormat("en-CA", {
 const toNumber = (n: any) =>
   typeof n === "number" ? n : typeof n === "string" ? Number(n) || 0 : 0;
 
-// ✅ Serialize any Firestore Timestamp/Date/string -> milliseconds (number)
 const parseTripDate = (input: any): Date => {
   if (!input) return new Date(0);
   if (input instanceof Date) return input;
@@ -53,18 +53,16 @@ export default function HomeScreen() {
   const dispatch = useDispatch();
   const router = useRouter();
 
-  // Redux-sourced data
   const trips = useSelector((s: RootState) => s.trip.trips);
   const cars = useSelector((s: RootState) => s.car.cars);
 
-  // Local state
   const [user, setUser] = useState<UserState | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [bootLoading, setBootLoading] = useState(true);
-  const [tripsThisWeekRowHeight, setTripsThisWeekRowHeight] =
-    useState<number>(0);
 
-  // Fetch data
+  // 🔑 Measure height of ONE trip row
+  const [weekRowHeight, setWeekRowHeight] = useState<number>(0);
+
   const fetchAll = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -77,24 +75,30 @@ export default function HomeScreen() {
       setUser(userData);
 
       if (tripsData) {
-        const tripsSerialized = tripsData.map((t: any) => ({
-          ...t,
-          date: toMillis(t.date),
-          createdAt: toMillis(t.createdAt),
-          updatedAt: toMillis(t.updatedAt),
-          savings: toNumber(t.savings),
-        }));
-        dispatch(setTrips(tripsSerialized));
+        dispatch(
+          setTrips(
+            tripsData.map((t: any) => ({
+              ...t,
+              date: toMillis(t.date),
+              createdAt: toMillis(t.createdAt),
+              updatedAt: toMillis(t.updatedAt),
+              savings: toNumber(t.savings),
+            })),
+          ),
+        );
       }
 
       if (carsData) {
-        const carsSerialized = carsData.map((c: any) => ({
-          ...c,
-          createdAt: toMillis(c.createdAt),
-          updatedAt: toMillis(c.updatedAt),
-          year: toNumber(c.year),
-        }));
-        dispatch(setCars(carsSerialized));
+        dispatch(
+          setCars(
+            carsData.map((c: any) => ({
+              ...c,
+              createdAt: toMillis(c.createdAt),
+              updatedAt: toMillis(c.updatedAt),
+              year: toNumber(c.year),
+            })),
+          ),
+        );
       }
     } finally {
       setRefreshing(false);
@@ -112,7 +116,6 @@ export default function HomeScreen() {
     }, [fetchAll]),
   );
 
-  // Derived metrics
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
@@ -131,12 +134,12 @@ export default function HomeScreen() {
   );
 
   const monthlySavings = useMemo(
-    () => tripsThisMonth.reduce((sum, t) => sum + toNumber(t.savings), 0),
+    () => tripsThisMonth.reduce((s, t) => s + toNumber(t.savings), 0),
     [tripsThisMonth],
   );
 
   const totalSavings = useMemo(
-    () => trips.reduce((sum, t) => sum + toNumber(t.savings), 0),
+    () => trips.reduce((s, t) => s + toNumber(t.savings), 0),
     [trips],
   );
 
@@ -174,19 +177,18 @@ export default function HomeScreen() {
       {/* Header */}
       <View className="items-center mb-6">
         <View className="bg-main w-24 h-24 rounded-full justify-center items-center mb-8 mt-16">
-          <Image
-            source={logoIcon}
-            style={{ width: 52, height: 52 }}
-            resizeMode="contain"
-          />
+          <Image source={logoIcon} style={{ width: 52, height: 52 }} />
         </View>
+
         <Text className="text-white text-4xl font-bold mb-5">
           Hello {user?.full_name || ""},
         </Text>
+
         <Text className="text-gray-400 text-2xl">You’ve saved</Text>
         <Text className="text-4xl text-green-400 font-bold my-2">
           {currency.format(monthlySavings)}
         </Text>
+
         <Text className="text-gray-400 text-2xl mb-2">
           with {tripsThisMonth.length} CoTrip
           {tripsThisMonth.length === 1 ? "" : "s"} this month
@@ -194,36 +196,41 @@ export default function HomeScreen() {
       </View>
 
       {/* Stats */}
-      <View className="flex-row justify-between space-x-4 gap-4">
-        <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center mb-5">
+      <View className="flex-row gap-4 mb-5">
+        <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center">
           <DollarSign color="#10B981" size={32} />
           <Text className="text-white text-2xl font-bold mt-2">
             {currency.format(totalSavings)}
           </Text>
-          <Text className="text-gray-400 text-xl mt-1">Total Savings</Text>
+          <Text className="text-gray-400 text-xl">Total Savings</Text>
         </View>
-        <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center mb-5">
+
+        <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center">
           <CarIcon color="#10B981" size={32} />
           <Text className="text-white text-2xl font-bold mt-2">
             {cars.length}
           </Text>
-          <Text className="text-gray-400 text-xl mt-1">Your Cars</Text>
+          <Text className="text-gray-400 text-xl">Your Cars</Text>
         </View>
       </View>
 
       {/* This Week */}
-      <View className="bg-gray-900 rounded-xl p-4 mb-2">
+      <View className="bg-gray-900 rounded-xl p-4 mb-4">
         <Text className="text-white text-xl font-bold mb-3">This week</Text>
 
         {tripsThisWeek.length > 0 ? (
           <View
             style={{
-              maxHeight: tripsThisWeekRowHeight * 5 || 300, // dynamically 5 rows
+              maxHeight: weekRowHeight ? weekRowHeight * 5 : 280,
             }}
           >
             <ScrollView
-              contentContainerStyle={{ paddingVertical: 4 }}
-              showsVerticalScrollIndicator={true}
+              showsVerticalScrollIndicator
+              indicatorStyle="white"
+              contentContainerStyle={{
+                paddingRight: 16, // 🔑 prevents overlap
+                paddingVertical: 4,
+              }}
             >
               {tripsThisWeek.map((trip, index) => {
                 const d = parseTripDate(trip.date);
@@ -232,11 +239,8 @@ export default function HomeScreen() {
                     key={trip.id}
                     className="flex-row justify-between items-center mb-3"
                     onLayout={(e) => {
-                      // Measure the first row only
-                      if (index === 0 && !tripsThisWeekRowHeight) {
-                        setTripsThisWeekRowHeight(
-                          e.nativeEvent.layout.height + 3,
-                        ); // include marginBottom
+                      if (index === 0 && !weekRowHeight) {
+                        setWeekRowHeight(e.nativeEvent.layout.height + 3);
                       }
                     }}
                   >
@@ -249,7 +253,8 @@ export default function HomeScreen() {
                         {trip.to_location_name || trip.to_location}
                       </Text>
                     </View>
-                    <Text className="text-main font-semibold">
+
+                    <Text className="text-main font-semibold mr-1">
                       {currency.format(toNumber(trip.savings))}
                     </Text>
                   </View>
@@ -265,19 +270,20 @@ export default function HomeScreen() {
       {/* Buttons */}
       <View className="flex-row justify-around p-4">
         <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center px-1 py-3 bg-main rounded-lg mr-3"
+          className="flex-1 flex-row items-center justify-center py-3 bg-main rounded-lg mr-3"
           onPress={() => router.push("/(tabs)/trips")}
         >
-          <PlusIcon className="w-5 h-5 mr-5" color="white" />
+          <PlusIcon color="white" />
           <Text className="text-white text-xl ml-3 font-semibold">
             New Trip
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center px-1 py-3 bg-main rounded-lg ml-3"
+          className="flex-1 flex-row items-center justify-center py-3 bg-main rounded-lg ml-3"
           onPress={() => router.push("/(tabs)/cars")}
         >
-          <CarIcon className="w-6 h-6 mr-5" color="white" />
+          <CarIcon color="white" />
           <Text className="text-white text-xl ml-3 font-semibold">Add Car</Text>
         </TouchableOpacity>
       </View>
