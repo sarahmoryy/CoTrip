@@ -1,7 +1,15 @@
-import { autocompletePlaces, placeDetails } from '@/assets/api/mapsApi';
-import debounce from 'lodash.debounce';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { autocompletePlaces, placeDetails } from "@/assets/api/mapsApi";
+import debounce from "lodash.debounce";
+import { X } from "lucide-react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type Prediction = { description: string; place_id: string };
 
@@ -9,15 +17,20 @@ type Props = {
   label?: string;
   placeholder?: string;
   initialText?: string;
-  minChars?: number; // don't query until this many chars (default 2)
-  onSelected: (v: { description: string; lat: number; lng: number; placeId: string }) => void;
+  minChars?: number;
+  onSelected: (v: {
+    description: string;
+    lat: number;
+    lng: number;
+    placeId: string;
+  }) => void;
   onTextChange?: (text: string) => void;
 };
 
 export default function AutocompleteInput({
-  label = '',
-  placeholder = 'Type a place or address',
-  initialText = '',
+  label = "",
+  placeholder = "Type a place or address",
+  initialText = "",
   minChars = 2,
   onSelected,
   onTextChange,
@@ -26,8 +39,8 @@ export default function AutocompleteInput({
   const [loading, setLoading] = useState(false);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
-  // Track latest request to avoid setting stale results after fast typing
   const reqCounter = useRef(0);
 
   const fetchPredictions = async (text: string) => {
@@ -49,7 +62,7 @@ export default function AutocompleteInput({
     } catch (e: any) {
       if (myReq !== reqCounter.current) return;
       setPredictions([]);
-      setError(e?.message ?? 'Failed to fetch suggestions');
+      setError(e?.message ?? "Failed to fetch suggestions");
     } finally {
       if (myReq === reqCounter.current) setLoading(false);
     }
@@ -70,10 +83,10 @@ export default function AutocompleteInput({
   };
 
   const clearInput = () => {
-    setQuery('');
+    setQuery("");
     setPredictions([]);
     setError(null);
-    onTextChange?.('');
+    onTextChange?.("");
   };
 
   const pickItem = async (place_id: string) => {
@@ -89,87 +102,158 @@ export default function AutocompleteInput({
         placeId: place_id,
       });
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to resolve place');
+      setError(e?.message ?? "Failed to resolve place");
     } finally {
       setLoading(false);
     }
   };
 
-  // ⭐ Keep the dropdown from getting huge (prevents needing inner scrolling)
-  const visiblePredictions = useMemo(() => predictions.slice(0, 6), [predictions]);
+  const visiblePredictions = useMemo(
+    () => predictions.slice(0, 6),
+    [predictions],
+  );
 
   return (
-    <View style={{ zIndex: 50 /* helps Android overlay the list */ }}>
-      {/* Label */}
+    <View style={{ zIndex: 50 }}>
       {label ? (
-        <View className="flex-row items-center mb-2">
-          <Text className="ml-2 text-white text-xl">{label}</Text>
-        </View>
+        <Text
+          style={{
+            color: "#9CA3AF",
+            fontSize: 12,
+            fontWeight: "500",
+            marginBottom: 6,
+            letterSpacing: 0.5,
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </Text>
       ) : null}
 
+      {/* Input row */}
       <View
-        className="bg-gray-800 border border-gray-600 rounded-lg flex-row items-center"
         style={{
-          height: 56,
-          overflow: 'hidden',
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: "#1F2937",
+          borderWidth: 1,
+          borderColor: isFocused ? "#4ade80" : "#374151",
+          borderRadius: 10,
+          minHeight: 52,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
         }}
       >
         <TextInput
           value={query}
           onChangeText={handleChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           multiline={false}
           numberOfLines={1}
-          scrollEnabled={true} // ok for TextInput
+          scrollEnabled={true}
           style={{
             flex: 1,
-            height: 56,
-            maxHeight: 56,
-            paddingHorizontal: 12,
-            fontSize: 16,
-            lineHeight: 16,
-            color: '#fff',
-            includeFontPadding: false,
-            textAlignVertical: 'center',
+            fontSize: 15,
+            color: "#F9FAFB",
+            paddingVertical: 0,
+            // vertically centers single-line text on both platforms
+            lineHeight: 20,
           }}
         />
 
+        {/* Clear button — pill style, clearly tappable */}
         {query ? (
-          <TouchableOpacity onPress={clearInput} className="px-3 py-2">
-            <Text className="text-gray-300">Clear</Text>
+          <TouchableOpacity
+            onPress={clearInput}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{
+              marginLeft: 8,
+              backgroundColor: "#374151",
+              borderRadius: 20,
+              width: 24,
+              height: 24,
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <X color="#9CA3AF" size={13} strokeWidth={2.5} />
           </TouchableOpacity>
+        ) : null}
+
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color="#4ade80"
+            style={{ marginLeft: 8 }}
+          />
         ) : null}
       </View>
 
-      {loading ? (
-        <View className="mt-2">
-          <ActivityIndicator />
-        </View>
-      ) : null}
-
       {!!error && !loading ? (
-        <Text className="text-red-400 mt-2">{error}</Text>
+        <Text style={{ color: "#F87171", fontSize: 12, marginTop: 4 }}>
+          {error}
+        </Text>
       ) : null}
 
+      {/* Dropdown suggestions */}
       {!loading && visiblePredictions.length > 0 && (
-        <View className="mt-2 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+        <View
+          style={{
+            marginTop: 4,
+            backgroundColor: "#1F2937",
+            borderWidth: 1,
+            borderColor: "#374151",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
           <FlatList
             keyboardShouldPersistTaps="handled"
             data={visiblePredictions}
             keyExtractor={(it) => it.place_id}
+            scrollEnabled={false}
+            removeClippedSubviews={false}
             renderItem={({ item, index }) => (
               <TouchableOpacity
-                className={`p-3 ${index !== visiblePredictions.length - 1 ? 'border-b border-gray-700' : ''}`}
                 onPress={() => pickItem(item.place_id)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 11,
+                  borderBottomWidth:
+                    index !== visiblePredictions.length - 1 ? 1 : 0,
+                  borderBottomColor: "#374151",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                }}
               >
-                <Text className="text-white">{item.description}</Text>
+                {/* Small pin dot accent */}
+                <View
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor: "#4ade80",
+                    opacity: 0.7,
+                    flexShrink: 0,
+                  }}
+                />
+                <Text
+                  style={{
+                    color: "#E5E7EB",
+                    fontSize: 14,
+                    flex: 1,
+                    lineHeight: 19,
+                  }}
+                >
+                  {item.description}
+                </Text>
               </TouchableOpacity>
             )}
-            // ⭐ THE FIX: make inner list NOT scrollable
-            scrollEnabled={false}
-            // ⭐ Helps dropdown rendering/zIndex issues in nested containers
-            removeClippedSubviews={false}
           />
         </View>
       )}
