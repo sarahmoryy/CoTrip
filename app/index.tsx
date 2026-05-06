@@ -1,17 +1,31 @@
-import { router } from 'expo-router';
-
-import { getAuth } from 'firebase/auth';
-
+import { router } from "expo-router";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 
 export default function Index() {
-  
+  const [checked, setChecked] = useState(false);
 
-  getAuth().onAuthStateChanged((user) => {
-    if (!user)  router.replace('/login');
-  });
-  
-  // const user = useSelector((state: { user: UserState }) => state.user);
+  useEffect(() => {
+    const auth = getAuth();
 
-  // // Redirect to /login if not authenticated, otherwise to /(tabs)/home
-  // return user.full_name ? <Redirect href="/(tabs)/home" /> : <Redirect href="/login" />;
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+      if (!checked) {
+        if (user) {
+          router.replace("/home");
+        } else {
+          router.replace("/login");
+        }
+        setChecked(true); // ✅ prevents loop
+      }
+    });
+
+    return unsubscribe;
+  }, [checked]);
+
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <ActivityIndicator size="large" />
+    </View>
+  );
 }

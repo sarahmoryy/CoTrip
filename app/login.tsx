@@ -1,109 +1,225 @@
-import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { Lock, Mail } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { auth } from '../FirebaseConfig';
-
-const logoIcon = require("../assets/images/Car_Auto.png");
+import { useRouter } from "expo-router";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { Lock, Mail } from "lucide-react-native";
+import React, { useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth } from "../FirebaseConfig";
+import { Btn } from "../components/ui/primitives";
+import { C } from "../components/ui/theme";
 
 export default function LoginScreen() {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passFocused, setPassFocused] = useState(false);
   const router = useRouter();
-  const dispatch = useDispatch();
 
   const signin = async () => {
     try {
       setLoading(true);
-      const userCred = await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
-      if (userCred?.user) router.replace('/(tabs)/home');
+      const userCred = await signInWithEmailAndPassword(
+        auth,
+        formData.email.trim(),
+        formData.password,
+      );
+      if (userCred?.user) router.replace("/(tabs)/home");
     } catch (error: any) {
-      console.log(error);
-      alert('sign in error: ' + (error?.message ?? String(error)));
+      alert("Sign-in failed: " + (error?.message ?? String(error)));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-black" contentContainerClassName="px-6 py-12 ">
-      {/* Header */}
-      <View className="items-center mb-4">
-        <View className="w-20 h-20 bg-black rounded-full items-center justify-center mb-6 mt-24">
-          <Image source={logoIcon} style={{ width: 86, height: 86 }} resizeMode="contain" />
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: C.bg }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingHorizontal: 24,
+          paddingBottom: 40,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Logo */}
+        <View style={{ alignItems: "center", marginBottom: 48 }}>
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              backgroundColor: C.greenTint,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 0.5,
+              borderColor: "rgba(74,222,128,0.25)",
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ fontSize: 30 }}>🚗</Text>
+          </View>
+          <Text
+            style={{
+              color: C.textPrimary,
+              fontSize: 34,
+              fontWeight: "700",
+              letterSpacing: -0.5,
+            }}
+          >
+            Co<Text style={{ color: C.green }}>Trip</Text>
+          </Text>
+          <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
+            share the road, share the cost
+          </Text>
         </View>
-        <Text className="text-7xl font-semibold text-green-400 mb-11">CoTrip</Text>
-      </View>
 
-      {/* Form Card */}
-      <View className="bg-gray-900 rounded-xl p-6 mb-6">
-        <View className="space-y-6">
+        {/* Card */}
+        <View
+          style={{
+            backgroundColor: C.surface,
+            borderRadius: 20,
+            padding: 24,
+            borderWidth: 0.5,
+            borderColor: C.border,
+            marginBottom: 32,
+          }}
+        >
           {/* Email */}
-          <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Email</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
-              <Mail color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
+          <View style={{ marginBottom: 16 }}>
+            <Text
+              style={{
+                color: C.textMuted,
+                fontSize: 11,
+                fontWeight: "600",
+                letterSpacing: 0.7,
+                textTransform: "uppercase",
+                marginBottom: 8,
+              }}
+            >
+              Email
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: C.surfaceAlt,
+                borderWidth: 1,
+                borderColor: emailFocused ? C.borderFocus : C.borderMid,
+                borderRadius: C.radius,
+                height: 52,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Mail
+                color={emailFocused ? C.green : C.textMuted}
+                size={16}
+                style={{ marginRight: 10 }}
+              />
               <TextInput
                 value={formData.email}
-                onChangeText={(text) => setFormData((p) => ({ ...p, email: text }))}
-                placeholder="Enter email"
-                placeholderTextColor="#9ca3af"
+                onChangeText={(t) => setFormData((p) => ({ ...p, email: t }))}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+                placeholder="your@email.com"
+                placeholderTextColor={C.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                spellCheck={false}
                 textContentType="emailAddress"
                 autoComplete="email"
-                importantForAutofill="yes"
-                style={{ flex: 1, color: '#fff', fontSize: 18, lineHeight: 22, height: '100%', paddingVertical: 0 }}
+                style={{
+                  flex: 1,
+                  color: C.textPrimary,
+                  fontSize: 15,
+                  paddingVertical: 0,
+                }}
               />
             </View>
           </View>
 
           {/* Password */}
-          <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Password</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-6 h-14">
-              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
+          <View style={{ marginBottom: 24 }}>
+            <Text
+              style={{
+                color: C.textMuted,
+                fontSize: 11,
+                fontWeight: "600",
+                letterSpacing: 0.7,
+                textTransform: "uppercase",
+                marginBottom: 8,
+              }}
+            >
+              Password
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: C.surfaceAlt,
+                borderWidth: 1,
+                borderColor: passFocused ? C.borderFocus : C.borderMid,
+                borderRadius: C.radius,
+                height: 52,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Lock
+                color={passFocused ? C.green : C.textMuted}
+                size={16}
+                style={{ marginRight: 10 }}
+              />
               <TextInput
                 value={formData.password}
-                onChangeText={(text) => setFormData((p) => ({ ...p, password: text }))}
-                placeholder="Enter password"
-                placeholderTextColor="#9ca3af"
+                onChangeText={(t) =>
+                  setFormData((p) => ({ ...p, password: t }))
+                }
+                onFocus={() => setPassFocused(true)}
+                onBlur={() => setPassFocused(false)}
+                placeholder="••••••••"
+                placeholderTextColor={C.textMuted}
                 secureTextEntry
                 autoCorrect={false}
-                spellCheck={false}
                 textContentType="password"
                 autoComplete="password"
-                importantForAutofill="yes"
-                style={{ flex: 1, color: '#fff', fontSize: 18, lineHeight: 22, height: '100%', paddingVertical: 0 }}
+                style={{
+                  flex: 1,
+                  color: C.textPrimary,
+                  fontSize: 15,
+                  paddingVertical: 0,
+                }}
               />
-
             </View>
           </View>
 
-          {/* Sign In Button */}
+          <Btn label="Sign in" loading={loading} onPress={signin} />
+        </View>
+
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ color: C.textMuted, fontSize: 14, marginBottom: 8 }}>
+            New to carpooling?
+          </Text>
           <TouchableOpacity
-            onPress={signin}
-            className="bg-main rounded-lg py-3 items-center "
-            disabled={loading}
+            onPress={() => router.push("/signup")}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text className="text-white text-lg font-medium">
-              {loading ? 'Processing...' : 'SIGN IN'}
+            <Text style={{ color: C.green, fontSize: 15, fontWeight: "600" }}>
+              Create an account
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Create Account Link */}
-      <View className="items-center mt-8">
-        <Text className="text-gray-400 text-2xl mb-4">New to carpooling? </Text>
-        <TouchableOpacity onPress={() => router.push('/signup')}>
-          <Text className="text-main text-xl font-medium">Create Account</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

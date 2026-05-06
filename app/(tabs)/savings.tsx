@@ -1,16 +1,27 @@
-// app/(tabs)/savings.tsx
-import { DollarSign, TrendingUp } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { useSelector } from 'react-redux';
-import { selectTotalSavingsFromTrips, selectTrips, Trip } from '../../store/tripSlice';
+import { DollarSign, TrendingUp } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSelector } from "react-redux";
+import { Card } from "../../components/ui/primitives";
+import { C, FONT } from "../../components/ui/theme";
+import {
+  selectTotalSavingsFromTrips,
+  selectTrips,
+  Trip,
+} from "../../store/tripSlice";
 
-// Locale-aware CAD formatter — always 2 decimals
-const currency = new Intl.NumberFormat('en-CA', {
-  style: 'currency',
-  currency: 'CAD',
+const currency = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
   minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
 });
 const fmt = (v: number) => currency.format(Number(v || 0));
 
@@ -18,39 +29,48 @@ function monthKeyFromDateStr(dateStr?: string): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthLabelShortFromIndex(i: number) {
-  const names = ['J','F','M','A','M','J','J','A','S','O','N','D']; // Apple-style compact
-  return names[i] ?? '';
-}
-
-function monthLabelLong(key: string) {
-  const [, mStr] = key.split('-');
-  const m = Number(mStr);
-  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return names[(m || 1) - 1] ?? 'Jan';
-}
-
-function monthKey(year: number, month1to12: number) {
-  return `${year}-${String(month1to12).padStart(2, '0')}`;
-}
+const MONTH_SHORT = [
+  "J",
+  "F",
+  "M",
+  "A",
+  "M",
+  "J",
+  "J",
+  "A",
+  "S",
+  "O",
+  "N",
+  "D",
+];
+const MONTH_LONG = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 export default function SavingsScreen() {
   const trips = useSelector(selectTrips);
   const totalSavings = useSelector(selectTotalSavingsFromTrips);
   const loading = useSelector((s: any) => s.trip?.loading) ?? false;
 
-  // Available years from trips
   const availableYears = useMemo(() => {
     const set = new Set<number>();
     for (const t of trips as Trip[]) {
       const key = monthKeyFromDateStr(t.date);
-      if (!key) continue;
-      set.add(Number(key.split('-')[0]));
+      if (key) set.add(Number(key.split("-")[0]));
     }
     const arr = Array.from(set).sort((a, b) => b - a);
     if (arr.length === 0) arr.push(new Date().getFullYear());
@@ -59,230 +79,314 @@ export default function SavingsScreen() {
 
   const [selectedYear, setSelectedYear] = useState<number>(availableYears[0]);
   const [yearOpen, setYearOpen] = useState(false);
-
-  useEffect(() => {
-    if (!availableYears.includes(selectedYear)) {
-      setSelectedYear(availableYears[0]);
-    }
-  }, [availableYears, selectedYear]);
-
-  // Bars (Jan–Dec) + year total for selected year
-  const { bars, maxValue, yearTotal } = useMemo(() => {
-    const totals = new Map<string, number>();
-
-    for (const t of trips as Trip[]) {
-      const key = monthKeyFromDateStr(t.date);
-      if (!key) continue;
-
-      const [yStr] = key.split('-');
-      const y = Number(yStr);
-      if (y !== selectedYear) continue;
-
-      const val = Number(t.savings ?? 0);
-      totals.set(key, (totals.get(key) ?? 0) + val);
-    }
-
-    const arr = Array.from({ length: 12 }, (_, i) => {
-      const k = monthKey(selectedYear, i + 1);
-      return { key: k, value: Number(totals.get(k) ?? 0) };
-    });
-
-    const maxV = Math.max(1, ...arr.map((b) => b.value));
-    const total = arr.reduce((sum, b) => sum + b.value, 0);
-
-    return { bars: arr, maxValue: maxV, yearTotal: total };
-  }, [trips, selectedYear]);
-
-  // Apple Health style: tap bar to show detail
   const [selectedBarKey, setSelectedBarKey] = useState<string | null>(null);
 
-  // Keep selection valid when year changes
+  useEffect(() => {
+    if (!availableYears.includes(selectedYear))
+      setSelectedYear(availableYears[0]);
+  }, [availableYears]);
   useEffect(() => {
     setSelectedBarKey(null);
   }, [selectedYear]);
 
-  const selectedBar = useMemo(() => {
-    if (!selectedBarKey) return null;
-    return bars.find((b) => b.key === selectedBarKey) ?? null;
-  }, [bars, selectedBarKey]);
+  const { bars, maxValue, yearTotal } = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const t of trips as Trip[]) {
+      const key = monthKeyFromDateStr(t.date);
+      if (!key) continue;
+      if (Number(key.split("-")[0]) !== selectedYear) continue;
+      totals.set(key, (totals.get(key) ?? 0) + Number(t.savings ?? 0));
+    }
+    const arr = Array.from({ length: 12 }, (_, i) => {
+      const k = `${selectedYear}-${String(i + 1).padStart(2, "0")}`;
+      return { key: k, value: Number(totals.get(k) ?? 0) };
+    });
+    return {
+      bars: arr,
+      maxValue: Math.max(1, ...arr.map((b) => b.value)),
+      yearTotal: arr.reduce((s, b) => s + b.value, 0),
+    };
+  }, [trips, selectedYear]);
+
+  const selectedBar = useMemo(
+    () => bars.find((b) => b.key === selectedBarKey) ?? null,
+    [bars, selectedBarKey],
+  );
 
   if (loading && (trips as any[]).length === 0) {
     return (
-      <View className="flex-1 justify-center items-center bg-black">
-        <ActivityIndicator size="large" color="#4ade80" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: C.bg,
+        }}
+      >
+        <ActivityIndicator size="large" color={C.green} />
       </View>
     );
   }
 
-  // Chart sizing (Apple Health vibes)
-  const CHART_H = 160;
-  const BAR_W = 12;          // slim bars
-  const BAR_GAP = 10;        // spacing between bars
-  const MIN_BAR_H = 3;       // make tiny values visible
-  const TOP_PAD = 10;
+  const CHART_H = 140;
 
   return (
-    <ScrollView className="flex-1 bg-black" contentContainerClassName="px-5 pb-10">
+    <ScrollView
+      style={{ flex: 1, backgroundColor: C.bg }}
+      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header */}
-      <View className="items-center mb-5 mt-20">
-        <Text className="text-3xl font-bold text-white mb-2">All Savings</Text>
-        <Text className="text-gray-400 text-xl font-semibold mb-2">
+      <View style={{ paddingTop: 64, paddingBottom: 24 }}>
+        <Text style={FONT.pageTitle}>Savings</Text>
+        <Text style={[FONT.bodyMuted, { marginTop: 4 }]}>
           Calculated from your trips
         </Text>
       </View>
 
-      {/* Total Savings (all-time) */}
-      <View className="bg-gray-900 rounded-xl p-5 mb-5">
-        <View className="bg-green-200/10 w-16 h-16 rounded-full items-center justify-center mx-auto mb-4">
-          <DollarSign color="#10B981" size={32} />
+      {/* All-time total */}
+      <Card style={{ padding: 24, alignItems: "center", marginBottom: 16 }}>
+        <View
+          style={{
+            width: 52,
+            height: 52,
+            backgroundColor: C.greenTint,
+            borderRadius: 26,
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
+          <DollarSign color={C.green} size={24} />
         </View>
-        <Text className="text-4xl font-bold mb-1 text-green-400 text-center">
+        <Text
+          style={{
+            color: C.green,
+            fontSize: 36,
+            fontWeight: "700",
+            letterSpacing: -0.5,
+          }}
+        >
           {fmt(totalSavings)}
         </Text>
-        <Text className="text-center text-gray-400 mb-2 text-lg">Total Savings</Text>
-        <View className="flex-row justify-center items-center">
-          <TrendingUp color="#4ade80" size={16} />
-          <Text className="text-main ml-1 text-xl">Great progress!</Text>
-        </View>
-      </View>
-
-      {/* Savings History card */}
-      <View className="bg-gray-900 rounded-xl p-5">
-        {/* Title row + small dropdown */}
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xl font-bold text-white">Savings History</Text>
-
-          <Pressable
-            onPress={() => setYearOpen(true)}
-            className="bg-gray-800 rounded-lg px-3 py-2 flex-row items-center"
-          >
-            <Text className="text-white font-semibold mr-2">{selectedYear}</Text>
-            <Text className="text-gray-400">▼</Text>
-          </Pressable>
-        </View>
-
-        {/* Selected month readout (Apple Health style) */}
-        <View className="mb-3">
-          <Text className="text-gray-400 font-semibold">
-            {selectedBar
-              ? `${monthLabelLong(selectedBar.key)} ${selectedYear}`
-              : `Tap a month`}
+        <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
+          All-time savings
+        </Text>
+        <View
+          style={{ flexDirection: "row", alignItems: "center", marginTop: 10 }}
+        >
+          <TrendingUp color={C.green} size={14} />
+          <Text style={{ color: C.green, fontSize: 13, marginLeft: 5 }}>
+            Great progress!
           </Text>
-          <Text className="text-white text-2xl font-bold">
+        </View>
+      </Card>
+
+      {/* Chart card */}
+      <Card style={{ padding: 20, marginBottom: 16 }}>
+        {/* Title row */}
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
+          <Text style={FONT.sectionTitle}>Savings history</Text>
+          <TouchableOpacity
+            onPress={() => setYearOpen(true)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: C.surfaceAlt,
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              gap: 6,
+            }}
+          >
+            <Text
+              style={{ color: C.textPrimary, fontSize: 13, fontWeight: "600" }}
+            >
+              {selectedYear}
+            </Text>
+            <Text style={{ color: C.textMuted, fontSize: 10 }}>▼</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Selected readout */}
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ color: C.textMuted, fontSize: 12, marginBottom: 2 }}>
+            {selectedBar
+              ? `${MONTH_LONG[Number(selectedBar.key.split("-")[1]) - 1]} ${selectedYear}`
+              : `${selectedYear} total`}
+          </Text>
+          <Text
+            style={{ color: C.textPrimary, fontSize: 28, fontWeight: "700" }}
+          >
             {selectedBar ? fmt(selectedBar.value) : fmt(yearTotal)}
           </Text>
-          {!selectedBar && (
-            <Text className="text-gray-500">Showing {selectedYear} total</Text>
-          )}
         </View>
 
-        {/* Vertical bar chart */}
-        <View className="bg-gray-950/40 rounded-2xl p-4">
-          {/* Chart area */}
-          <View style={{ height: CHART_H + TOP_PAD }} className="justify-end">
-            {/* baseline */}
-            <View className="absolute left-0 right-0 bottom-0 h-[1px] bg-gray-700/70" />
-
-            <View className="flex-row items-end justify-between">
-              {bars.map(({ key, value }, idx) => {
-                const raw = value / maxValue;
-                const h =
-                  value === 0 ? 0 : Math.max(MIN_BAR_H, Math.round(raw * CHART_H));
-
-                const active = selectedBarKey === key;
-
-                return (
-                  <Pressable
-                    key={key}
-                    onPress={() => setSelectedBarKey((prev) => (prev === key ? null : key))}
-                    style={{ width: BAR_W + BAR_GAP, alignItems: 'center' }}
-                  >
-                    {/* bar */}
-                    <View
-                      className={[
-                        'rounded-full',
-                        active ? 'bg-green-400' : 'bg-green-500',
-                      ].join(' ')}
-                      style={{
-                        width: BAR_W,
-                        height: h,
-                        opacity: value === 0 ? 0.35 : 1,
-                      }}
-                    />
-
-                    {/* tiny non-zero indicator dot (super minimal) */}
-                    {value > 0 && (
-                      <View
-                        className="bg-green-200/35 rounded-full mt-1"
-                        style={{ width: 2, height: 2 }}
-                      />
-                    )}
-
-                    {/* month label */}
-                    <Text className="text-gray-500 mt-2 text-xs">
-                      {monthLabelShortFromIndex(idx)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+        {/* Bar chart */}
+        <View style={{ height: CHART_H + 24 }}>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 24,
+              left: 0,
+              right: 0,
+              height: 0.5,
+              backgroundColor: C.borderMid,
+            }}
+          />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-end",
+              height: CHART_H,
+              paddingBottom: 0,
+            }}
+          >
+            {bars.map(({ key, value }, idx) => {
+              const h =
+                value === 0
+                  ? 2
+                  : Math.max(4, Math.round((value / maxValue) * CHART_H));
+              const active = selectedBarKey === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() =>
+                    setSelectedBarKey((p) => (p === key ? null : key))
+                  }
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    height: CHART_H,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 8,
+                      height: h,
+                      backgroundColor: active
+                        ? C.green
+                        : value === 0
+                          ? C.borderMid
+                          : "#1a5c35",
+                      borderRadius: 4,
+                    }}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+          {/* Month labels */}
+          <View style={{ flexDirection: "row", marginTop: 8 }}>
+            {bars.map(({ key }, idx) => (
+              <View key={key} style={{ flex: 1, alignItems: "center" }}>
+                <Text
+                  style={{
+                    color: selectedBarKey === key ? C.green : C.textMuted,
+                    fontSize: 10,
+                    fontWeight: selectedBarKey === key ? "700" : "400",
+                  }}
+                >
+                  {MONTH_SHORT[idx]}
+                </Text>
+              </View>
+            ))}
           </View>
         </View>
 
-        {/* Year total at bottom */}
-        <View className="mt-4 pt-3 border-t border-gray-800 flex-row justify-between">
-          <Text className="text-gray-400 font-semibold">{selectedYear} total</Text>
-          <Text className="text-green-400 font-bold">{fmt(yearTotal)}</Text>
+        {/* Year total footer */}
+        <View
+          style={{
+            marginTop: 16,
+            paddingTop: 16,
+            borderTopWidth: 0.5,
+            borderTopColor: C.border,
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text style={{ color: C.textMuted, fontSize: 13 }}>
+            {selectedYear} total
+          </Text>
+          <Text style={{ color: C.green, fontSize: 13, fontWeight: "700" }}>
+            {fmt(yearTotal)}
+          </Text>
         </View>
+      </Card>
 
-        {/* Dropdown modal */}
-        <Modal
-          visible={yearOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setYearOpen(false)}
+      {/* Year picker modal */}
+      <Modal
+        visible={yearOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setYearOpen(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            justifyContent: "center",
+            paddingHorizontal: 40,
+          }}
+          onPress={() => setYearOpen(false)}
         >
           <Pressable
-            className="flex-1 bg-black/60 justify-center px-8"
-            onPress={() => setYearOpen(false)}
+            style={{
+              backgroundColor: C.surface,
+              borderRadius: 16,
+              padding: 20,
+              borderWidth: 0.5,
+              borderColor: C.border,
+            }}
+            onPress={(e) => e.stopPropagation()}
           >
-            <Pressable
-              className="bg-gray-900 rounded-2xl p-4"
-              onPress={(e) => e.stopPropagation()}
-            >
-              <Text className="text-white font-bold text-lg mb-3">Select year</Text>
-
-              {availableYears.map((y) => {
-                const active = y === selectedYear;
-                return (
-                  <Pressable
-                    key={y}
-                    onPress={() => {
-                      setSelectedYear(y);
-                      setYearOpen(false);
-                    }}
-                    className={[
-                      'px-4 py-3 rounded-xl mb-2',
-                      active ? 'bg-green-500' : 'bg-gray-800',
-                    ].join(' ')}
-                  >
-                    <Text className={active ? 'text-black font-bold' : 'text-white font-semibold'}>
-                      {y}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-
-              <Pressable
-                onPress={() => setYearOpen(false)}
-                className="mt-1 px-4 py-3 rounded-xl bg-gray-800"
+            <Text style={[FONT.sectionTitle, { marginBottom: 16 }]}>
+              Select year
+            </Text>
+            {availableYears.map((y) => (
+              <TouchableOpacity
+                key={y}
+                onPress={() => {
+                  setSelectedYear(y);
+                  setYearOpen(false);
+                }}
+                style={{
+                  paddingVertical: 14,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  marginBottom: 6,
+                  backgroundColor:
+                    y === selectedYear ? C.greenDark : C.surfaceAlt,
+                }}
               >
-                <Text className="text-white text-center font-semibold">Cancel</Text>
-              </Pressable>
-            </Pressable>
+                <Text
+                  style={{
+                    color: y === selectedYear ? "#fff" : C.textPrimary,
+                    fontWeight: "600",
+                    fontSize: 15,
+                  }}
+                >
+                  {y}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setYearOpen(false)}
+              style={{ paddingVertical: 14, alignItems: "center" }}
+            >
+              <Text style={{ color: C.textMuted, fontSize: 14 }}>Cancel</Text>
+            </TouchableOpacity>
           </Pressable>
-        </Modal>
-      </View>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }

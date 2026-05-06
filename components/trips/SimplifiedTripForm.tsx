@@ -1,13 +1,8 @@
-// src/components/trips/SimplifiedTripForm.tsx
-import { Picker } from "@react-native-picker/picker";
-import {
-  Car as CarIcon,
-  MapPin,
-  Users
-} from "lucide-react-native";
+import { computeTripOneWay } from "@/assets/utils/computeTrips";
+import AutocompleteInput from "@/components/AutoComplete";
+import { Car as CarIcon } from "lucide-react-native";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -16,14 +11,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-
 import { Car } from "../../store/carSlice";
 import { Trip } from "../../store/tripSlice";
-
-import { computeTripOneWay } from "@/assets/utils/computeTrips";
-import AutocompleteInput from "@/components/AutoComplete";
+import { Btn, FieldLabel, ModalShell } from "../ui/primitives";
+import { C } from "../ui/theme";
 
 interface Props {
   cars: Car[];
@@ -32,56 +25,164 @@ interface Props {
   isCalculating: boolean;
 }
 
-// ─── Small reusable section label ────────────────────────────────────────────
-function FieldLabel({ icon, text }: { icon: React.ReactNode; text: string }) {
+// ── Car Picker bottom sheet ────────────────────────────────────────────────────
+function CarPickerSheet({
+  cars,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  cars: Car[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        marginBottom: 8,
-        gap: 6,
-      }}
-    >
-      {icon}
-      <Text
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={onClose}
         style={{
-          color: "#9CA3AF",
-          fontSize: 12,
-          fontWeight: "600",
-          letterSpacing: 0.6,
-          textTransform: "uppercase",
+          flex: 1,
+          backgroundColor: "rgba(0,0,0,0.6)",
+          justifyContent: "flex-end",
         }}
       >
-        {text}
-      </Text>
-    </View>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={(e) => e.stopPropagation()}
+          style={{
+            backgroundColor: C.surface,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderWidth: 0.5,
+            borderColor: C.border,
+            paddingBottom: Platform.OS === "ios" ? 34 : 20,
+          }}
+        >
+          {/* Handle */}
+          <View
+            style={{
+              width: 36,
+              height: 4,
+              backgroundColor: C.borderMid,
+              borderRadius: 2,
+              alignSelf: "center",
+              marginTop: 12,
+              marginBottom: 6,
+            }}
+          />
+          <Text
+            style={{
+              color: C.textMuted,
+              fontSize: 11,
+              fontWeight: "600",
+              letterSpacing: 0.7,
+              textTransform: "uppercase",
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              borderBottomWidth: 0.5,
+              borderBottomColor: C.border,
+            }}
+          >
+            Select a car
+          </Text>
+          {cars.length === 0 ? (
+            <Text
+              style={{
+                color: C.textMuted,
+                textAlign: "center",
+                padding: 32,
+                fontSize: 14,
+              }}
+            >
+              No cars registered yet. Add a car first.
+            </Text>
+          ) : (
+            cars.map((c, i) => {
+              const active = c.id === selectedId;
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => {
+                    onSelect(c.id);
+                    onClose();
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingHorizontal: 20,
+                    paddingVertical: 14,
+                    borderBottomWidth: i < cars.length - 1 ? 0.5 : 0,
+                    borderBottomColor: C.border,
+                    backgroundColor: active ? "#0d2117" : "transparent",
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      backgroundColor: active ? C.greenTint : C.surfaceAlt,
+                      borderRadius: 10,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: 14,
+                    }}
+                  >
+                    <CarIcon color={active ? C.green : C.textMuted} size={18} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={{
+                        color: C.textPrimary,
+                        fontSize: 15,
+                        fontWeight: "500",
+                      }}
+                    >
+                      {c.make} {c.model}
+                    </Text>
+                    <Text
+                      style={{ color: C.textMuted, fontSize: 12, marginTop: 2 }}
+                    >
+                      {c.year}
+                      {c.consumption_l_100km
+                        ? ` · ${c.consumption_l_100km} L/100km`
+                        : ""}
+                    </Text>
+                  </View>
+                  {active && (
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: C.green,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: C.greenDim,
+                          fontSize: 12,
+                          fontWeight: "700",
+                        }}
+                      >
+                        ✓
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
   );
 }
 
-// ─── Divider between From / To ────────────────────────────────────────────────
-function RouteDivider() {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        marginVertical: 4,
-        paddingLeft: 3,
-      }}
-    >
-      <View
-        style={{
-          width: 1,
-          height: 18,
-          backgroundColor: "#374151",
-          marginLeft: 9,
-        }}
-      />
-    </View>
-  );
-}
-
+// ── Main form ─────────────────────────────────────────────────────────────────
 export default function SimplifiedTripForm({
   cars,
   onCalculate,
@@ -97,24 +198,21 @@ export default function SimplifiedTripForm({
     passengers: "",
     car_id: "",
   });
-
   const [originCoords, setOriginCoords] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  const [originResolved, setOriginResolved] = useState<string>("");
-
+  const [originResolved, setOriginResolved] = useState("");
   const [destCoords, setDestCoords] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  const [destResolved, setDestResolved] = useState<string>("");
-
+  const [destResolved, setDestResolved] = useState("");
   const [localBusy, setLocalBusy] = useState(false);
-  const [passengersFocused, setPassengersFocused] = useState(false);
+  const [showCarPicker, setShowCarPicker] = useState(false);
+  const [passFocused, setPassFocused] = useState(false);
 
   const selectedCar = cars.find((c) => c.id === form.car_id);
-
   const canSubmit =
     !!form.from_location &&
     !!form.to_location &&
@@ -123,33 +221,23 @@ export default function SimplifiedTripForm({
     !localBusy;
 
   async function handleNext() {
+    if (!form.from_location || !form.to_location || !form.car_id) return;
+    if (form.passengers && !/^\d+$/.test(form.passengers))
+      return Alert.alert(
+        "Invalid passengers",
+        "Enter a whole number (e.g., 1, 2, 3).",
+      );
+    setLocalBusy(true);
     try {
-      if (!form.from_location || !form.to_location || !form.car_id) return;
-
-      if (form.passengers && !/^\d+$/.test(form.passengers)) {
-        return Alert.alert(
-          "Invalid passengers",
-          "Enter a whole number (e.g., 1, 2, 3).",
-        );
-      }
-
-      setLocalBusy(true);
-
-      if (!selectedCar) {
-        setLocalBusy(false);
-        return Alert.alert("Select a car", "Please choose a car to continue.");
-      }
-
       const m = await computeTripOneWay({
         fromText: originResolved || form.from_location,
         toText: destResolved || form.to_location,
-        car: selectedCar,
+        car: selectedCar!,
         passengers: form.passengers,
         fromCoords: originCoords,
         toCoords: destCoords,
       });
-
-      const payload: Trip = {
+      onCalculate({
         id: "",
         destination: (m.toResolved || form.to_location || "").trim(),
         date: new Date().toISOString(),
@@ -159,9 +247,7 @@ export default function SimplifiedTripForm({
         car_id: form.car_id,
         distance: m.distanceKm,
         cost: m.totalCost,
-      };
-
-      onCalculate(payload);
+      });
     } catch (e: any) {
       Alert.alert("Trip error", e?.message ?? "Failed to calculate route");
     } finally {
@@ -172,256 +258,177 @@ export default function SimplifiedTripForm({
   return (
     <Modal visible animationType="slide" onRequestClose={onCancel}>
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: "#000" }}
+        style={{ flex: 1, backgroundColor: C.bg }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, padding: 16 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            padding: 20,
+            justifyContent: "center",
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View
-            style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+          <ModalShell
+            title="Where are you going?"
+            subtitle="Fill in your trip details"
+            onClose={onCancel}
           >
+            {/* Route card */}
             <View
               style={{
-                backgroundColor: "#111827",
-                borderRadius: 20,
-                padding: 24,
-                width: "100%",
-                maxWidth: 440,
-                borderWidth: 1,
-                borderColor: "#1F2937",
+                backgroundColor: "#0d1117",
+                borderRadius: 14,
+                padding: 16,
+                borderWidth: 0.5,
+                borderColor: C.border,
+                marginBottom: 16,
               }}
             >
-              {/* ── Header ── */}
+              <View style={{ zIndex: 60 }}>
+                <FieldLabel text="From" />
+                <AutocompleteInput
+                  placeholder="Search starting point"
+                  initialText={form.from_location}
+                  onTextChange={(t) => {
+                    setForm((f) => ({ ...f, from_location: t }));
+                    setOriginCoords(null);
+                    setOriginResolved("");
+                  }}
+                  onSelected={(v) => {
+                    setForm((f) => ({ ...f, from_location: v.description }));
+                    setOriginCoords({ lat: v.lat, lng: v.lng });
+                    setOriginResolved(v.description);
+                  }}
+                />
+              </View>
               <View
                 style={{
                   flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: 24,
+                  alignItems: "center",
+                  marginVertical: 8,
+                  paddingLeft: 2,
                 }}
               >
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text
-                    style={{
-                      color: "#F9FAFB",
-                      fontSize: 22,
-                      fontWeight: "700",
-                      lineHeight: 28,
-                    }}
-                  >
-                    Where are you going?
-                  </Text>
-                  <Text
-                    style={{ color: "#6B7280", fontSize: 13, marginTop: 3 }}
-                  >
-                    Fill in your trip details below
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={onCancel}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                <View
                   style={{
-                    backgroundColor: "#1F2937",
-                    borderRadius: 20,
-                    width: 32,
-                    height: 32,
-                    alignItems: "center",
+                    width: 1,
+                    height: 16,
+                    backgroundColor: C.borderMid,
+                    marginLeft: 5,
+                  }}
+                />
+              </View>
+              <View style={{ zIndex: 50 }}>
+                <FieldLabel text="To" />
+                <AutocompleteInput
+                  placeholder="Search destination"
+                  initialText={form.to_location}
+                  onTextChange={(t) => {
+                    setForm((f) => ({ ...f, to_location: t }));
+                    setDestCoords(null);
+                    setDestResolved("");
+                  }}
+                  onSelected={(v) => {
+                    setForm((f) => ({ ...f, to_location: v.description }));
+                    setDestCoords({ lat: v.lat, lng: v.lng });
+                    setDestResolved(v.description);
+                  }}
+                />
+              </View>
+            </View>
+
+            {/* Passengers + Car row */}
+            <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
+              <View style={{ flex: 1 }}>
+                <FieldLabel text="Passengers" />
+                <View
+                  style={{
+                    backgroundColor: C.surfaceAlt,
+                    borderWidth: 1,
+                    borderColor: passFocused ? C.borderFocus : C.borderMid,
+                    borderRadius: C.radius,
+                    height: 52,
                     justifyContent: "center",
-                    flexShrink: 0,
-                    marginTop: 2,
+                    paddingHorizontal: 12,
                   }}
                 >
+                  <TextInput
+                    keyboardType="number-pad"
+                    value={form.passengers}
+                    onChangeText={(t) =>
+                      setForm((f) => ({ ...f, passengers: t }))
+                    }
+                    onFocus={() => setPassFocused(true)}
+                    onBlur={() => setPassFocused(false)}
+                    placeholder="e.g. 2"
+                    placeholderTextColor={C.textMuted}
+                    style={{
+                      color: C.textPrimary,
+                      fontSize: 15,
+                      paddingVertical: 0,
+                    }}
+                  />
+                </View>
+              </View>
+              <View style={{ flex: 2 }}>
+                <FieldLabel text="Car" />
+                <TouchableOpacity
+                  onPress={() => setShowCarPicker(true)}
+                  activeOpacity={0.8}
+                  style={{
+                    backgroundColor: C.surfaceAlt,
+                    borderWidth: 1,
+                    borderColor: selectedCar ? C.borderFocus : C.borderMid,
+                    borderRadius: C.radius,
+                    height: 52,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingHorizontal: 12,
+                    gap: 8,
+                  }}
+                >
+                  <CarIcon
+                    color={selectedCar ? C.green : C.textMuted}
+                    size={16}
+                  />
                   <Text
-                    style={{ color: "#9CA3AF", fontSize: 16, lineHeight: 18 }}
+                    style={{
+                      color: selectedCar ? C.textPrimary : C.textMuted,
+                      fontSize: 14,
+                      flex: 1,
+                    }}
+                    numberOfLines={1}
                   >
-                    ✕
+                    {selectedCar
+                      ? `${selectedCar.make} ${selectedCar.model}`
+                      : "Select car"}
                   </Text>
+                  <Text style={{ color: C.textMuted, fontSize: 10 }}>▾</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* ── Route card (From + To grouped) ── */}
-              <View
-                style={{
-                  backgroundColor: "#0F172A",
-                  borderRadius: 14,
-                  padding: 16,
-                  borderWidth: 1,
-                  borderColor: "#1E293B",
-                  marginBottom: 16,
-                }}
-              >
-                {/* From */}
-                <View style={{ zIndex: 60 }}>
-                  <FieldLabel
-                    icon={<MapPin color="#4ade80" size={14} />}
-                    text="From"
-                  />
-                  <AutocompleteInput
-                    placeholder="Search starting point"
-                    initialText={form.from_location}
-                    onTextChange={(text) => {
-                      setForm((f) => ({ ...f, from_location: text }));
-                      setOriginCoords(null);
-                      setOriginResolved("");
-                    }}
-                    onSelected={(v) => {
-                      setForm((f) => ({ ...f, from_location: v.description }));
-                      setOriginCoords({ lat: v.lat, lng: v.lng });
-                      setOriginResolved(v.description);
-                    }}
-                  />
-                </View>
-
-                <RouteDivider />
-
-                {/* To */}
-                <View style={{ zIndex: 50, marginTop: 4 }}>
-                  <FieldLabel
-                    icon={<MapPin color="#4ade80" size={14} />}
-                    text="To"
-                  />
-                  <AutocompleteInput
-                    placeholder="Search destination"
-                    initialText={form.to_location}
-                    onTextChange={(text) => {
-                      setForm((f) => ({ ...f, to_location: text }));
-                      setDestCoords(null);
-                      setDestResolved("");
-                    }}
-                    onSelected={(v) => {
-                      setForm((f) => ({ ...f, to_location: v.description }));
-                      setDestCoords({ lat: v.lat, lng: v.lng });
-                      setDestResolved(v.description);
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* ── Passengers + Car row ── */}
-              <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
-                {/* Passengers */}
-                <View style={{ flex: 1 }}>
-                  <FieldLabel
-                    icon={<Users color="#4ade80" size={14} />}
-                    text="Passengers"
-                  />
-                  <View
-                    style={{
-                      backgroundColor: "#1F2937",
-                      borderWidth: 1,
-                      borderColor: passengersFocused ? "#4ade80" : "#374151",
-                      borderRadius: 10,
-                      height: 52,
-                      justifyContent: "center",
-                      paddingHorizontal: 12,
-                    }}
-                  >
-                    <TextInput
-                      keyboardType="number-pad"
-                      value={form.passengers}
-                      onChangeText={(text) =>
-                        setForm((f) => ({ ...f, passengers: text }))
-                      }
-                      onFocus={() => setPassengersFocused(true)}
-                      onBlur={() => setPassengersFocused(false)}
-                      placeholder="e.g. 2"
-                      placeholderTextColor="#6B7280"
-                      style={{
-                        color: "#F9FAFB",
-                        fontSize: 15,
-                        paddingVertical: 0,
-                      }}
-                    />
-                  </View>
-                </View>
-
-                {/* Car */}
-                <View style={{ flex: 2 }}>
-                  <FieldLabel
-                    icon={<CarIcon color="#4ade80" size={14} />}
-                    text="Car"
-                  />
-                  <View
-                    style={{
-                      backgroundColor: "#1F2937",
-                      borderWidth: 1,
-                      borderColor: form.car_id ? "#4ade80" : "#374151",
-                      borderRadius: 10,
-                      height: 52,
-                      overflow: "hidden",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Picker
-                      selectedValue={form.car_id}
-                      onValueChange={(val) =>
-                        setForm((f) => ({ ...f, car_id: val as string }))
-                      }
-                      dropdownIconColor="#6B7280"
-                      style={{
-                        color: form.car_id ? "#F9FAFB" : "#6B7280",
-                        // on iOS the Picker renders taller than its container;
-                        // a negative margin pulls it back into the 52px box
-                        marginTop: Platform.OS === "ios" ? -8 : 0,
-                        marginBottom: Platform.OS === "ios" ? -8 : 0,
-                      }}
-                      itemStyle={{ color: "#F9FAFB", fontSize: 15 }}
-                    >
-                      <Picker.Item
-                        label="Select car"
-                        value=""
-                        color="#6B7280"
-                      />
-                      {cars.map((c) => (
-                        <Picker.Item
-                          key={c.id}
-                          label={`${c.make} ${c.model}`}
-                          value={c.id}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-              </View>
-
-              {/* ── Submit ── */}
-              <TouchableOpacity
-                onPress={handleNext}
-                disabled={!canSubmit}
-                activeOpacity={0.85}
-                style={{
-                  backgroundColor: canSubmit ? "#4ade80" : "#1F2937",
-                  borderRadius: 12,
-                  height: 52,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderWidth: canSubmit ? 0 : 1,
-                  borderColor: "#374151",
-                }}
-              >
-                {isCalculating || localBusy ? (
-                  <ActivityIndicator color={canSubmit ? "#000" : "#6B7280"} />
-                ) : (
-                  <Text
-                    style={{
-                      color: canSubmit ? "#052e16" : "#6B7280",
-                      fontSize: 16,
-                      fontWeight: "700",
-                      letterSpacing: 0.3,
-                    }}
-                  >
-                    Calculate route →
-                  </Text>
-                )}
-              </TouchableOpacity>
             </View>
-          </View>
+
+            <Btn
+              label="Calculate route →"
+              onPress={handleNext}
+              disabled={!canSubmit}
+              loading={isCalculating || localBusy}
+            />
+          </ModalShell>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {showCarPicker && (
+        <CarPickerSheet
+          cars={cars}
+          selectedId={form.car_id || ""}
+          onSelect={(id) => setForm((f) => ({ ...f, car_id: id }))}
+          onClose={() => setShowCarPicker(false)}
+        />
+      )}
     </Modal>
   );
 }

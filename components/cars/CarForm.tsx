@@ -4,12 +4,11 @@ import {
   FlatList,
   Keyboard,
   Modal,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from "react-native";
 import { Car } from "../../store/carSlice";
 import {
@@ -19,22 +18,18 @@ import {
   VEHICLES,
   VehicleEntry,
 } from "../../vehicleLists";
+import { Btn } from "../ui/primitives";
+import { C } from "../ui/theme";
 
-interface CarFormProps {
+interface Props {
   car: Car | null;
-  onSave: (carData: Car) => void;
+  onSave: (data: Car) => void;
   onCancel: () => void;
   isSaving: boolean;
 }
-
 type SearchType = "make" | "model" | "year" | null;
 
-export default function CarForm({
-  car,
-  onSave,
-  onCancel,
-  isSaving,
-}: CarFormProps) {
+export default function CarForm({ car, onSave, onCancel, isSaving }: Props) {
   const [formData, setFormData] = useState({
     make: car?.make || "",
     model: car?.model || "",
@@ -42,95 +37,60 @@ export default function CarForm({
     license_plate: car?.license_plate || "",
     consumption_l_100km: car?.consumption_l_100km?.toString() || "",
   });
-
   const [searchType, setSearchType] = useState<SearchType>(null);
   const [query, setQuery] = useState("");
 
-  /* ---------------------------------- */
-  /* SEARCH DATA SOURCES */
-  /* ---------------------------------- */
-
   const modelOptions = useMemo(
-    () => (formData.make ? CAR_MODELS[formData.make] ?? [] : []),
-    [formData.make]
+    () => (formData.make ? (CAR_MODELS[formData.make] ?? []) : []),
+    [formData.make],
   );
-
   const yearOptions = useMemo(
     () =>
       formData.make && formData.model
         ? (CAR_YEARS[formData.make]?.[formData.model] ?? []).map(String)
         : [],
-    [formData.make, formData.model]
+    [formData.make, formData.model],
   );
-
-  /* ---------------------------------- */
-  /* SMART SEARCH (RANKED) */
-  /* ---------------------------------- */
 
   const suggestions = useMemo(() => {
     if (!searchType || !query) return [];
-
     const list =
       searchType === "make"
         ? CAR_MAKES
         : searchType === "model"
-        ? modelOptions
-        : searchType === "year"
-        ? yearOptions
-        : [];
-
+          ? modelOptions
+          : yearOptions;
     const q = query.toLowerCase();
-
-    const startsWith: string[] = [];
-    const wordStartsWith: string[] = [];
+    const starts: string[] = [];
+    const wordStarts: string[] = [];
     const includes: string[] = [];
-
     for (const item of list) {
-      const lower = item.toLowerCase();
-
-      if (lower.startsWith(q)) {
-        startsWith.push(item);
-      } else if (lower.split(" ").some(word => word.startsWith(q))) {
-        wordStartsWith.push(item);
-      } else if (lower.includes(q)) {
-        includes.push(item);
-      }
+      const l = item.toLowerCase();
+      if (l.startsWith(q)) starts.push(item);
+      else if (l.split(" ").some((w) => w.startsWith(q))) wordStarts.push(item);
+      else if (l.includes(q)) includes.push(item);
     }
-
-    return [...startsWith, ...wordStartsWith, ...includes].slice(0, 5);
+    return [...starts, ...wordStarts, ...includes].slice(0, 6);
   }, [searchType, query, modelOptions, yearOptions]);
-
-  /* ---------------------------------- */
-  /* AUTO CONSUMPTION */
-  /* ---------------------------------- */
 
   useEffect(() => {
     if (!formData.make || !formData.model || !formData.year) return;
-
-    const entry: VehicleEntry | undefined =
-      VEHICLES[formData.make]?.[formData.model]?.find(
-        (v) => v.year === Number(formData.year)
-      );
-
-    if (entry) {
-      setFormData((prev) => ({
-        ...prev,
+    const entry: VehicleEntry | undefined = VEHICLES[formData.make]?.[
+      formData.model
+    ]?.find((v) => v.year === Number(formData.year));
+    if (entry)
+      setFormData((p) => ({
+        ...p,
         consumption_l_100km: entry.combinedLPer100km.toString(),
       }));
-    }
   }, [formData.year]);
-
-  /* ---------------------------------- */
-  /* HELPERS */
-  /* ---------------------------------- */
 
   const openSearch = (type: SearchType) => {
     setQuery("");
     setSearchType(type);
   };
-
   const selectValue = (value: string) => {
-    if (searchType === "make") {
+    if (searchType === "make")
       setFormData({
         make: value,
         model: "",
@@ -138,20 +98,15 @@ export default function CarForm({
         license_plate: "",
         consumption_l_100km: "",
       });
-    }
-    if (searchType === "model") {
-      setFormData((prev) => ({ ...prev, model: value, year: "" }));
-    }
-    if (searchType === "year") {
-      setFormData((prev) => ({ ...prev, year: value }));
-    }
-
+    if (searchType === "model")
+      setFormData((p) => ({ ...p, model: value, year: "" }));
+    if (searchType === "year") setFormData((p) => ({ ...p, year: value }));
     Keyboard.dismiss();
     setSearchType(null);
   };
 
   const handleSubmit = () => {
-    const carData: Car = {
+    onSave({
       id: car?.id || "",
       make: formData.make,
       model: formData.model,
@@ -159,118 +114,247 @@ export default function CarForm({
       license_plate: formData.license_plate || undefined,
       consumption_l_100km: Number(formData.consumption_l_100km) || undefined,
       fuel_efficiency: car?.fuel_efficiency,
-    };
-    onSave(carData);
+    });
   };
 
-  /* ---------------------------------- */
-  /* UI */
-  /* ---------------------------------- */
+  const canSubmit = !!formData.make && !!formData.model && !!formData.year;
 
   return (
     <Modal visible animationType="slide">
-      <View style={styles.container}>
-        <View style={styles.formContainer}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: C.bg,
+          justifyContent: "center",
+          padding: 20,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: C.surface,
+            borderRadius: 20,
+            padding: 24,
+            borderWidth: 0.5,
+            borderColor: C.border,
+          }}
+        >
           {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <CarIcon size={24} color="#10B981" />
-              <Text style={styles.headerTitle}>
-                {car ? "Edit Car" : "Add new car"}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 24,
+            }}
+          >
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+            >
+              <CarIcon color={C.green} size={20} />
+              <Text
+                style={{
+                  color: C.textPrimary,
+                  fontSize: 20,
+                  fontWeight: "700",
+                }}
+              >
+                {car ? "Edit car" : "Add a car"}
               </Text>
             </View>
-            <TouchableOpacity onPress={onCancel}>
-              <X size={24} color="#9CA3AF" />
+            <TouchableOpacity
+              onPress={onCancel}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{
+                backgroundColor: C.surfaceAlt,
+                borderRadius: 16,
+                width: 32,
+                height: 32,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <X color={C.textMuted} size={16} />
             </TouchableOpacity>
           </View>
 
-          {/* Make */}
-          <Text style={styles.label}>Car Brand</Text>
-          <TouchableOpacity style={styles.input} onPress={() => openSearch("make")}>
-            <Text style={formData.make ? styles.value : styles.placeholder}>
-              {formData.make || "Search car brand"}
-            </Text>
-          </TouchableOpacity>
+          {/* Fields */}
+          {[
+            {
+              label: "Brand",
+              value: formData.make,
+              placeholder: "Search car brand",
+              type: "make" as SearchType,
+              disabled: false,
+            },
+            {
+              label: "Model",
+              value: formData.model,
+              placeholder: "Search model",
+              type: "model" as SearchType,
+              disabled: !formData.make,
+            },
+            {
+              label: "Year",
+              value: formData.year,
+              placeholder: "Select year",
+              type: "year" as SearchType,
+              disabled: !formData.model,
+            },
+          ].map(({ label, value, placeholder, type, disabled }) => (
+            <View key={label} style={{ marginBottom: 16 }}>
+              <Text
+                style={{
+                  color: C.textMuted,
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.7,
+                  textTransform: "uppercase",
+                  marginBottom: 6,
+                }}
+              >
+                {label}
+              </Text>
+              <TouchableOpacity
+                onPress={() => openSearch(type)}
+                disabled={disabled}
+                style={{
+                  backgroundColor: C.surfaceAlt,
+                  borderWidth: 1,
+                  borderColor: disabled
+                    ? C.border
+                    : value
+                      ? C.borderFocus
+                      : C.borderMid,
+                  borderRadius: C.radius,
+                  height: 52,
+                  justifyContent: "center",
+                  paddingHorizontal: 14,
+                  opacity: disabled ? 0.45 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    color: value ? C.textPrimary : C.textMuted,
+                    fontSize: 15,
+                  }}
+                >
+                  {value || placeholder}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
 
-          {/* Model */}
-          <Text style={styles.label}>Model</Text>
-          <TouchableOpacity
-            style={[styles.input, !formData.make && styles.disabled]}
-            disabled={!formData.make}
-            onPress={() => openSearch("model")}
-          >
-            <Text style={formData.model ? styles.value : styles.placeholder}>
-              {formData.model || "Search model"}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Year */}
-          <Text style={styles.label}>Year</Text>
-          <TouchableOpacity
-            style={[styles.input, !formData.model && styles.disabled]}
-            disabled={!formData.model}
-            onPress={() => openSearch("year")}
-          >
-            <Text style={formData.year ? styles.value : styles.placeholder}>
-              {formData.year || "Search year"}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Submit */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              (!formData.make || !formData.model || !formData.year) &&
-                styles.buttonDisabled,
-            ]}
-            disabled={isSaving || !formData.make || !formData.model || !formData.year}
-            onPress={handleSubmit}
-          >
-            <Text style={styles.buttonText}>
-              {isSaving ? "Saving..." : "Save"}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: 8 }}>
+            <Btn
+              label={isSaving ? "Saving..." : "Save car"}
+              onPress={handleSubmit}
+              disabled={!canSubmit || isSaving}
+              loading={isSaving}
+            />
+          </View>
         </View>
       </View>
 
-      {/* SEARCH MODAL */}
+      {/* Search modal */}
       <Modal transparent visible={!!searchType} animationType="fade">
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.searchContainer}>
-              <View style={styles.modalHeader}>
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.7)",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <View
+              style={{
+                width: "90%",
+                maxHeight: "55%",
+                backgroundColor: C.surface,
+                borderRadius: 20,
+                overflow: "hidden",
+                borderWidth: 0.5,
+                borderColor: C.border,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: 16,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: C.border,
+                }}
+              >
                 <TouchableOpacity onPress={() => setSearchType(null)}>
-                  <Text style={styles.cancelText}>Cancel</Text>
+                  <Text style={{ color: C.textMuted, fontSize: 14 }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
-                <Text style={styles.modalTitle}>Search</Text>
+                <Text
+                  style={{
+                    color: C.textPrimary,
+                    fontSize: 15,
+                    fontWeight: "600",
+                  }}
+                >
+                  Search
+                </Text>
                 <TouchableOpacity onPress={() => setSearchType(null)}>
-                  <Text style={styles.doneText}>Done</Text>
+                  <Text
+                    style={{ color: C.green, fontSize: 14, fontWeight: "600" }}
+                  >
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
-
               <TextInput
                 value={query}
                 onChangeText={setQuery}
                 autoFocus
                 placeholder="Type to search..."
-                placeholderTextColor="#9CA3AF"
-                style={styles.searchInput}
+                placeholderTextColor={C.textMuted}
+                style={{
+                  backgroundColor: C.surfaceAlt,
+                  margin: 12,
+                  borderRadius: C.radius,
+                  padding: 12,
+                  color: C.textPrimary,
+                  fontSize: 15,
+                }}
                 blurOnSubmit={false}
               />
-
               {suggestions.length === 0 ? (
-                <Text style={styles.noResults}>No results found</Text>
+                <Text
+                  style={{
+                    color: C.textMuted,
+                    textAlign: "center",
+                    padding: 24,
+                    fontSize: 14,
+                  }}
+                >
+                  No results found
+                </Text>
               ) : (
                 <FlatList
                   data={suggestions}
-                  keyExtractor={(item) => item}
+                  keyExtractor={(i) => i}
                   keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
+                  renderItem={({ item, index }) => (
                     <TouchableOpacity
-                      style={styles.suggestionItem}
                       onPress={() => selectValue(item)}
+                      style={{
+                        paddingVertical: 14,
+                        paddingHorizontal: 16,
+                        borderBottomWidth:
+                          index < suggestions.length - 1 ? 0.5 : 0,
+                        borderBottomColor: C.border,
+                      }}
                     >
-                      <Text style={styles.suggestionText}>{item}</Text>
+                      <Text style={{ color: C.textPrimary, fontSize: 15 }}>
+                        {item}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 />
@@ -282,97 +366,3 @@ export default function CarForm({
     </Modal>
   );
 }
-
-/* ---------------------------------- */
-/* STYLES */
-/* ---------------------------------- */
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    padding: 16,
-  },
-  formContainer: {
-    backgroundColor: "#1F2937",
-    borderRadius: 12,
-    padding: 16,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#374151",
-    paddingBottom: 12,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitle: { color: "#FFF", fontSize: 20, fontWeight: "700" },
-
-  label: { color: "#FFF", fontSize: 16, fontWeight: "600", marginTop: 16 },
-  input: {
-    backgroundColor: "#111827",
-    borderRadius: 10,
-    padding: 14,
-    marginTop: 6,
-  },
-  placeholder: { color: "#9CA3AF", fontSize: 16 },
-  value: { color: "#FFF", fontSize: 16 },
-  disabled: { opacity: 0.4 },
-
-  button: {
-    backgroundColor: "#10B981",
-    padding: 14,
-    borderRadius: 10,
-    marginTop: 24,
-    alignItems: "center",
-  },
-  buttonDisabled: { backgroundColor: "#6B7280" },
-  buttonText: { color: "#FFF", fontSize: 18, fontWeight: "600" },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  searchContainer: {
-    width: "92%",
-    maxHeight: "60%",
-    backgroundColor: "#0F1724",
-    borderRadius: 18,
-    overflow: "hidden",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1F2937",
-  },
-  modalTitle: { color: "#FFF", fontSize: 16, fontWeight: "600" },
-  cancelText: { color: "#9CA3AF" },
-  doneText: { color: "#10B981" },
-
-  searchInput: {
-    backgroundColor: "#111827",
-    margin: 16,
-    borderRadius: 10,
-    padding: 14,
-    color: "#FFF",
-    fontSize: 16,
-  },
-  suggestionItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#1F2937",
-  },
-  suggestionText: { color: "#FFF", fontSize: 16 },
-  noResults: {
-    color: "#9CA3AF",
-    textAlign: "center",
-    marginVertical: 24,
-  },
-});

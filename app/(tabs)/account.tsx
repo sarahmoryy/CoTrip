@@ -1,20 +1,58 @@
-import { useRouter } from 'expo-router';
-import { Edit, LogOut, Settings, User as UserIcon } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { UserService } from '../../store/all';
-import { clearUser, UserState } from '../../store/userSlice';
+import { useRouter } from "expo-router";
+import { Edit2 } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useDispatch } from "react-redux";
+import { Btn, Card } from "../../components/ui/primitives";
+import { C, FONT } from "../../components/ui/theme";
+import { UserService } from "../../store/all";
+import { clearUser, UserState } from "../../store/userSlice";
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 12,
+        borderBottomWidth: 0.5,
+        borderBottomColor: C.border,
+      }}
+    >
+      <Text style={{ color: C.textMuted, fontSize: 14 }}>{label}</Text>
+      <Text
+        style={{
+          color: C.textPrimary,
+          fontSize: 14,
+          fontWeight: "500",
+          maxWidth: "60%",
+          textAlign: "right",
+        }}
+      >
+        {value || "Not set"}
+      </Text>
+    </View>
+  );
+}
 
 export default function AccountScreen() {
   const [user, setUser] = useState<UserState | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    full_name: '',
-    phone: '',
-    address: '',
+    full_name: "",
+    phone: "",
+    address: "",
   });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -25,35 +63,35 @@ export default function AccountScreen() {
   const loadUser = async () => {
     try {
       const userData = await UserService.me();
-
-      // Normalize fields to avoid undefined
-      const normalizedData: UserState = {
-        full_name: userData.full_name || '',
-        email: userData.email || '',
-        phone: userData.phone || '',
-        address: userData.address || '',
+      const norm: UserState = {
+        full_name: userData.full_name || "",
+        email: userData.email || "",
+        phone: userData.phone || "",
+        address: userData.address || "",
       };
-
-      setUser(normalizedData);
+      setUser(norm);
       setFormData({
-        full_name: normalizedData.full_name,
-        phone: normalizedData.phone,
-        address: normalizedData.address,
+        full_name: norm.full_name,
+        phone: norm.phone,
+        address: norm.address,
       });
-    } catch (error) {
-      console.error('Error loading user:', error);
+    } catch (e) {
+      console.error("Error loading user:", e);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSave = async () => {
+    setSaving(true);
     try {
       await UserService.updateMyUserData(formData);
       setIsEditing(false);
       loadUser();
-    } catch (error) {
-      console.error('Error updating user:', error);
+    } catch (e) {
+      console.error("Error updating user:", e);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -61,166 +99,177 @@ export default function AccountScreen() {
     try {
       await UserService.logout();
       dispatch(clearUser());
-      router.push('/login');
-    } catch (error) {
-      console.error('Error logging out:', error);
+      router.push("/login");
+    } catch (e) {
+      console.error("Error logging out:", e);
     }
   };
 
-  if (loading) {
+  if (loading)
     return (
-      <View className="flex-1 justify-center items-center">
-        <View className="w-12 h-12 border-b-2 border-green-400 rounded-full animate-spin" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: C.bg,
+        }}
+      >
+        <ActivityIndicator size="large" color={C.green} />
       </View>
     );
-  }
+
+  const initials = (user?.full_name || "U")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
-    <ScrollView className="flex-1 bg-black" contentContainerClassName="px-6 py-6">
-      {/* Header */}
-      <View className="items-center mb-6 mt-20">
-        <View className="w-32 h-32 bg-green-200/20 rounded-full items-center justify-center mb-4">
-          <UserIcon color="#4ade80" size={52} />
+    <ScrollView
+      style={{ flex: 1, backgroundColor: C.bg }}
+      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Avatar + name */}
+      <View style={{ alignItems: "center", paddingTop: 72, paddingBottom: 32 }}>
+        <View
+          style={{
+            width: 80,
+            height: 80,
+            backgroundColor: C.greenTint,
+            borderRadius: 40,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1.5,
+            borderColor: C.green,
+            marginBottom: 16,
+          }}
+        >
+          <Text style={{ color: C.green, fontSize: 28, fontWeight: "700" }}>
+            {initials}
+          </Text>
         </View>
-        <Text className="text-4xl font-bold text-green-400">{user?.full_name || 'User'}</Text>
-        <Text className="text-gray-400">{user?.email}</Text>
+        <Text style={{ color: C.textPrimary, fontSize: 22, fontWeight: "700" }}>
+          {user?.full_name || "User"}
+        </Text>
+        <Text style={{ color: C.textMuted, fontSize: 14, marginTop: 4 }}>
+          {user?.email}
+        </Text>
       </View>
 
-      {/* Profile Information */}
-      <View className="bg-gray-900 rounded-xl mb-6">
-        <View className="flex-row items-center justify-between p-4 border-b border-gray-700">
-          <View className="flex-row items-center gap-2">
-            <Settings color="#4ade80" size={22} />
-            <Text className="text-xl font-bold text-white">Personal Information</Text>
-          </View>
-          <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
-            <Edit color={isEditing ? 'white' : '#9ca3af'} size={20} />
+      {/* Personal info card */}
+      <Card style={{ marginBottom: 16 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: 16,
+            borderBottomWidth: 0.5,
+            borderBottomColor: C.border,
+          }}
+        >
+          <Text style={FONT.sectionTitle}>Personal information</Text>
+          <TouchableOpacity
+            onPress={() => setIsEditing(!isEditing)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Edit2 color={isEditing ? C.green : C.textMuted} size={18} />
           </TouchableOpacity>
         </View>
 
-        <View className="p-4">
+        <View style={{ padding: 16 }}>
           {isEditing ? (
-            <View className="space-y-4">
-              {/* Full Name */}
-              <View className="space-y-2">
-                <Text className="text-white text-xl font-medium mb-2">Full Name</Text>
-                <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
-                  <TextInput
-                    value={formData.full_name}
-                    onChangeText={(text) => setFormData({ ...formData, full_name: text })}
-                    placeholder="Enter full name"
-                    placeholderTextColor="#9CA3AF"
+            <View>
+              {[
+                {
+                  label: "Full name",
+                  key: "full_name",
+                  placeholder: "Your name",
+                },
+                {
+                  label: "Phone",
+                  key: "phone",
+                  placeholder: "+1 (555) 000-0000",
+                  keyboard: "phone-pad",
+                },
+                {
+                  label: "Address",
+                  key: "address",
+                  placeholder: "Your address",
+                },
+              ].map(({ label, key, placeholder, keyboard }) => (
+                <View key={key} style={{ marginBottom: 14 }}>
+                  <Text
                     style={{
-                      height: '100%',
-                      paddingVertical: 0,
-                      paddingHorizontal: 12,
-                      color: '#fff',
-                      fontSize: 18,
-                      lineHeight: 22,
-                      textAlignVertical: 'center',
+                      color: C.textMuted,
+                      fontSize: 11,
+                      fontWeight: "600",
+                      letterSpacing: 0.7,
+                      textTransform: "uppercase",
+                      marginBottom: 6,
                     }}
-                  />
-                </View>
-              </View>
-
-              {/* Phone Number */}
-              <View className="space-y-2">
-                <Text className="text-white text-xl font-medium mb-2 mt-2">Phone Number</Text>
-                <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
-                  <TextInput
-                    value={formData.phone}
-                    onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                    placeholder="(555) 123-4567"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="phone-pad"
+                  >
+                    {label}
+                  </Text>
+                  <View
                     style={{
-                      height: '100%',
-                      paddingVertical: 0,
+                      backgroundColor: C.surfaceAlt,
+                      borderWidth: 1,
+                      borderColor: C.borderMid,
+                      borderRadius: C.radius,
+                      height: 48,
+                      justifyContent: "center",
                       paddingHorizontal: 12,
-                      color: '#fff',
-                      fontSize: 18,
-                      lineHeight: 22,
-                      textAlignVertical: 'center',
                     }}
-                  />
+                  >
+                    <TextInput
+                      value={(formData as any)[key]}
+                      onChangeText={(t) =>
+                        setFormData((p) => ({ ...p, [key]: t }))
+                      }
+                      placeholder={placeholder}
+                      placeholderTextColor={C.textMuted}
+                      keyboardType={keyboard as any}
+                      style={{
+                        color: C.textPrimary,
+                        fontSize: 15,
+                        paddingVertical: 0,
+                      }}
+                    />
+                  </View>
                 </View>
-              </View>
-
-              {/* Address */}
-              <View className="space-y-2">
-                <Text className="text-white text-xl font-medium mb-2 mt-2">Address</Text>
-                <View className="h-14 bg-gray-700 border border-gray-600 rounded-lg">
-                  <TextInput
-                    value={formData.address}
-                    onChangeText={(text) => setFormData({ ...formData, address: text })}
-                    placeholder="Enter address"
-                    placeholderTextColor="#9CA3AF"
-                    style={{
-                      height: '100%',
-                      paddingVertical: 0,
-                      paddingHorizontal: 12,
-                      color: '#fff',
-                      fontSize: 18,
-                      lineHeight: 22,
-                      textAlignVertical: 'center',
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* Buttons */}
-              <View className="flex-row gap-3 mt-5">
-                <TouchableOpacity
+              ))}
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                <Btn
+                  label="Cancel"
+                  variant="outline"
                   onPress={() => setIsEditing(false)}
-                  className="flex-1 border border-gray-600 rounded-lg py-3 items-center bg-transparent"
-                >
-                  <Text className="text-gray-400 text-xl font-medium">Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
+                  style={{ flex: 1 }}
+                />
+                <Btn
+                  label="Save"
+                  loading={saving}
                   onPress={handleSave}
-                  className="flex-1 bg-main rounded-lg py-3 items-center border-2 border-green-400"
-                >
-                  <Text className="text-white text-xl font-medium">Save Changes</Text>
-                </TouchableOpacity>
+                  style={{ flex: 1 }}
+                />
               </View>
             </View>
           ) : (
-            <View className="space-y-4">
-              <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl">Full Name</Text>
-                <Text className="font-medium text-white">{user?.full_name || 'Not set'}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl">Email</Text>
-                <Text className="font-medium text-white">{user?.email}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl">Phone</Text>
-                <Text className="font-medium text-white">{user?.phone || 'Not set'}</Text>
-              </View>
-              <View className="flex-row justify-between items-center">
-                <Text className="text-gray-400 text-xl">Address</Text>
-                <Text className="font-medium text-white">{user?.address || 'Not set'}</Text>
-              </View>
+            <View>
+              <InfoRow label="Full name" value={user?.full_name || ""} />
+              <InfoRow label="Email" value={user?.email || ""} />
+              <InfoRow label="Phone" value={user?.phone || ""} />
+              <InfoRow label="Address" value={user?.address || ""} />
             </View>
           )}
         </View>
-      </View>
+      </Card>
 
-      {/* Account Actions */}
-      <View className="bg-black rounded-xl">
-        <View className="p-4">
-          <TouchableOpacity
-            onPress={handleLogout}
-            className="w-full border border-red-600 rounded-lg py-3 items-center bg-transparent"
-          >
-            <View className="flex-row items-center">
-              <LogOut color="#ef4444" size={16} className="mr-2" />
-              <Text className="text-red-400 text-xl font-medium">Sign Out</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Sign out */}
+      <Btn label="Sign out" variant="danger" onPress={handleLogout} />
     </ScrollView>
   );
 }
