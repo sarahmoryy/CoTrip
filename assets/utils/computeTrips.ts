@@ -80,7 +80,8 @@ export async function computeTripOneWay(args: {
   const totalCost = litres * pricePerL;
 
   const pax = Math.max(1, parseInt(String(passengers || 1), 10));
-  const costPerPerson = totalCost / pax;
+  const totalPeople = pax + 1; // passengers + driver
+  const costPerPerson = totalCost / totalPeople;
 
   return {
     fromResolved,
