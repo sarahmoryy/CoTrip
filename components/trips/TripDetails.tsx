@@ -126,7 +126,7 @@ export default function TripDetails({
           <View style={{ marginBottom: 20 }}>
             <DetailRow
               label="Car"
-              value={car ? `${car.year} ${car.make} ${car.model}` : "N/A"}
+              value={car ? `${car.year} ${car.make} ${car.model}` : trip.car_name || "N/A"}
             />
             <DetailRow label="Passengers" value={trip.passengers || "N/A"} />
             <DetailRow

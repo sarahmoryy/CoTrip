@@ -245,6 +245,7 @@ export default function SimplifiedTripForm({
         to_location: destResolved || form.to_location,
         passengers: m.passengers,
         car_id: form.car_id,
+        car_name: selectedCar ? `${selectedCar.make} ${selectedCar.model}` : undefined,
         distance: m.distanceKm,
         cost: m.totalCost,
       });

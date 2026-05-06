@@ -24,6 +24,7 @@ export default function TripCard({
   onDelete,
 }: TripCardProps) {
   const car = cars.find((c) => c.id === trip.car_id);
+  const carLabel = car ? `${car.make} ${car.model}` : trip.car_name;
   const dateStr = trip.date
     ? new Date(trip.date).toLocaleDateString("en-CA", {
         month: "short",
@@ -149,11 +150,11 @@ export default function TripCard({
             </Text>
           </View>
         )}
-        {car && (
+        {carLabel && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
             <CarIcon color={C.textMuted} size={13} />
             <Text style={{ color: C.textMuted, fontSize: 12 }}>
-              {car.make} {car.model}
+              {carLabel}
             </Text>
           </View>
         )}

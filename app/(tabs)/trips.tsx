@@ -156,7 +156,12 @@ export default function Trips() {
           onCalculate={async (incoming: Trip) => {
             try {
               setIsCalculating(true);
-              const saved = await TripService.create(incoming);
+              const car = cars.find((c) => c.id === incoming.car_id);
+              const tripData: Trip = {
+                ...incoming,
+                car_name: car ? `${car.make} ${car.model}` : incoming.car_name,
+              };
+              const saved = await TripService.create(tripData);
               dispatch(addTrip(saved));
               justCreatedTripIdRef.current = saved.id;
               setPendingTrip(saved);
