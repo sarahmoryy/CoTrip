@@ -1,11 +1,9 @@
 import { toMillis } from "@/assets/utils/conversion";
 import {
   endOfMonth,
-  endOfWeek,
   format,
   isWithinInterval,
   startOfMonth,
-  startOfWeek,
 } from "date-fns";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
@@ -107,8 +105,6 @@ export default function HomeScreen() {
   const now = new Date();
   const monthStart = startOfMonth(now);
   const monthEnd = endOfMonth(now);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
   const tripsThisMonth = useMemo(
     () =>
@@ -128,19 +124,12 @@ export default function HomeScreen() {
     () => trips.reduce((sum, t) => sum + toNumber(t.savings), 0),
     [trips],
   );
-  const tripsThisWeek = useMemo(
+  const recentTrips = useMemo(
     () =>
-      trips
-        .filter((t) =>
-          isWithinInterval(parseTripDate(t.date), {
-            start: weekStart,
-            end: weekEnd,
-          }),
-        )
-        .sort(
-          (a, b) =>
-            parseTripDate(b.date).getTime() - parseTripDate(a.date).getTime(),
-        ),
+      [...trips].sort(
+        (a, b) =>
+          parseTripDate(b.date).getTime() - parseTripDate(a.date).getTime(),
+      ),
     [trips],
   );
 
@@ -162,17 +151,13 @@ export default function HomeScreen() {
   const firstName = user?.full_name?.split(" ")[0] || "";
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: C.bg }}
-      contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={fetchAll}
-          tintColor={C.green}
-        />
-      }
-      showsVerticalScrollIndicator={false}
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: C.bg,
+        paddingHorizontal: 20,
+        paddingBottom: 32,
+      }}
     >
       {/* Header */}
       <View style={{ paddingTop: 64, paddingBottom: 24 }}>
@@ -285,9 +270,10 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* This week */}
+      {/* Recent trips */}
       <View
         style={{
+          flex: 1,
           backgroundColor: C.surface,
           borderRadius: 16,
           padding: 20,
@@ -296,51 +282,67 @@ export default function HomeScreen() {
           marginBottom: 20,
         }}
       >
-        <Text style={[FONT.sectionTitle, { marginBottom: 16 }]}>This week</Text>
-        {tripsThisWeek.length > 0 ? (
-          tripsThisWeek.slice(0, 5).map((trip) => {
-            const d = parseTripDate(trip.date);
-            return (
-              <View
-                key={trip.id}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: 10,
-                  borderBottomWidth: 0.5,
-                  borderBottomColor: C.border,
-                }}
-              >
-                <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={[FONT.sectionTitle, { marginBottom: 16 }]}>
+          Recent trips
+        </Text>
+        {recentTrips.length > 0 ? (
+          <ScrollView
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator
+            indicatorStyle="white"
+            persistentScrollbar
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={fetchAll}
+                tintColor={C.green}
+              />
+            }
+          >
+            {recentTrips.map((trip) => {
+              const d = parseTripDate(trip.date);
+              return (
+                <View
+                  key={trip.id}
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    paddingVertical: 10,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: C.border,
+                  }}
+                >
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <Text
+                      style={{
+                        color: C.textSecondary,
+                        fontSize: 12,
+                        marginBottom: 2,
+                      }}
+                    >
+                      {format(d, "EEE, MMM d")}
+                    </Text>
+                    <Text
+                      style={{ color: C.textPrimary, fontSize: 14 }}
+                      numberOfLines={1}
+                    >
+                      {trip.from_location_name || trip.from_location} →{" "}
+                      {trip.to_location_name || trip.to_location}
+                    </Text>
+                  </View>
                   <Text
-                    style={{
-                      color: C.textSecondary,
-                      fontSize: 12,
-                      marginBottom: 2,
-                    }}
+                    style={{ color: C.green, fontSize: 14, fontWeight: "700" }}
                   >
-                    {format(d, "EEE, MMM d")}
-                  </Text>
-                  <Text
-                    style={{ color: C.textPrimary, fontSize: 14 }}
-                    numberOfLines={1}
-                  >
-                    {trip.from_location_name || trip.from_location} →{" "}
-                    {trip.to_location_name || trip.to_location}
+                    {currency.format(toNumber(trip.savings))}
                   </Text>
                 </View>
-                <Text
-                  style={{ color: C.green, fontSize: 14, fontWeight: "700" }}
-                >
-                  {currency.format(toNumber(trip.savings))}
-                </Text>
-              </View>
-            );
-          })
+              );
+            })}
+          </ScrollView>
         ) : (
           <Text style={{ color: C.textMuted, fontSize: 14 }}>
-            No trips yet this week
+            No trips yet
           </Text>
         )}
       </View>
@@ -390,6 +392,6 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }

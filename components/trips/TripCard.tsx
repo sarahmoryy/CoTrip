@@ -132,7 +132,10 @@ export default function TripCard({
       <View
         style={{
           flexDirection: "row",
-          gap: 16,
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 12,
+          rowGap: 8,
           paddingTop: 12,
           borderTopWidth: 0.5,
           borderTopColor: C.border,
@@ -151,9 +154,22 @@ export default function TripCard({
           </View>
         )}
         {carLabel && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+              flexShrink: 1,
+              minWidth: 0,
+              maxWidth: "100%",
+            }}
+          >
             <CarIcon color={C.textMuted} size={13} />
-            <Text style={{ color: C.textMuted, fontSize: 12 }}>
+            <Text
+              style={{ color: C.textMuted, fontSize: 12, flexShrink: 1 }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {carLabel}
             </Text>
           </View>

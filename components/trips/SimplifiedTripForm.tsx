@@ -4,7 +4,6 @@ import { Car as CarIcon } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -258,19 +257,16 @@ export default function SimplifiedTripForm({
 
   return (
     <Modal visible animationType="slide" onRequestClose={onCancel}>
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: C.bg }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
-      >
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
-            padding: 20,
             justifyContent: "center",
+            padding: 20,
           }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets
         >
           <ModalShell
             title="Where are you going?"
@@ -420,7 +416,7 @@ export default function SimplifiedTripForm({
             />
           </ModalShell>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
 
       {showCarPicker && (
         <CarPickerSheet
