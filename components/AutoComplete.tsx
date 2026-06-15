@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { C } from "./ui/theme";
+import { useTheme } from "./ui/theme";
 
 type Prediction = { description: string; place_id: string };
 type Props = {
@@ -35,6 +35,7 @@ export default function AutocompleteInput({
   onSelected,
   onTextChange,
 }: Props) {
+  const { C } = useTheme();
   const [query, setQuery] = useState(initialText);
   const [loading, setLoading] = useState(false);
   const [predictions, setPredictions] = useState<Prediction[]>([]);

@@ -2,7 +2,7 @@ import { Edit2, Fuel, Trash2 } from "lucide-react-native";
 import React from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { Car } from "../../store/carSlice";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface Props {
   car: Car;
@@ -11,6 +11,7 @@ interface Props {
 }
 
 export default function CarCard({ car, onEdit, onDelete }: Props) {
+  const { C } = useTheme();
   const confirmDelete = () => {
     Alert.alert("Remove car", `Remove ${car.make} ${car.model}?`, [
       { text: "Cancel", style: "cancel" },

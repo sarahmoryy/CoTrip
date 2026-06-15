@@ -13,7 +13,7 @@ import CarCard from "../../components/cars/CarCard";
 import CarForm from "../../components/cars/CarForm";
 import ConsumptionConfirmation from "../../components/cars/ConsumptionConfirmation";
 import { EmptyState } from "../../components/ui/primitives";
-import { C, FONT } from "../../components/ui/theme";
+import { useTheme } from "../../components/ui/theme";
 import { CarService } from "../../store/carService";
 import { Car, addCar, setCars } from "../../store/carSlice";
 import { RootState } from "../../store/store";
@@ -31,6 +31,7 @@ const normalizeCar = (c: any): Car => ({
 });
 
 export default function CarsScreen() {
+  const { C, FONT } = useTheme();
   const [showForm, setShowForm] = useState(false);
   const [showConsumption, setShowConsumption] = useState(false);
   const [editingCar, setEditingCar] = useState<Car | null>(null);
@@ -132,19 +133,19 @@ export default function CarsScreen() {
         </View>
         <TouchableOpacity
           onPress={() => setShowForm(true)}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           style={{
             flexDirection: "row",
             alignItems: "center",
-            backgroundColor: C.greenDark,
+            backgroundColor: C.primary,
             paddingHorizontal: 14,
             paddingVertical: 10,
             borderRadius: C.radius,
             gap: 6,
           }}
         >
-          <Plus color="#fff" size={16} />
-          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>
+          <Plus color={C.primaryText} size={16} />
+          <Text style={{ color: C.primaryText, fontSize: 14, fontWeight: "700" }}>
             Add Car
           </Text>
         </TouchableOpacity>

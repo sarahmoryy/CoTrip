@@ -11,9 +11,10 @@ import {
 } from "react-native";
 import { auth } from "../FirebaseConfig";
 import { Btn } from "../components/ui/primitives";
-import { C } from "../components/ui/theme";
+import { useTheme } from "../components/ui/theme";
 
 export default function LoginScreen() {
+  const { C } = useTheme();
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);

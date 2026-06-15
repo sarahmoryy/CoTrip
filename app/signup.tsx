@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { Btn } from "../components/ui/primitives";
-import { C } from "../components/ui/theme";
+import { useTheme } from "../components/ui/theme";
 import { UserService } from "../store/all";
 
 function Field({
@@ -22,6 +22,7 @@ function Field({
   secure,
   keyboard,
 }: any) {
+  const { C } = useTheme();
   const [focused, setFocused] = useState(false);
   return (
     <View style={{ marginBottom: 16 }}>
@@ -80,6 +81,7 @@ function Field({
 }
 
 export default function SignupScreen() {
+  const { C } = useTheme();
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",

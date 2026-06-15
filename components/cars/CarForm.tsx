@@ -19,7 +19,7 @@ import {
   VehicleEntry,
 } from "../../vehicleLists";
 import { Btn } from "../ui/primitives";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface Props {
   car: Car | null;
@@ -30,6 +30,7 @@ interface Props {
 type SearchType = "make" | "model" | "year" | null;
 
 export default function CarForm({ car, onSave, onCancel, isSaving }: Props) {
+  const { C } = useTheme();
   const [formData, setFormData] = useState({
     make: car?.make || "",
     model: car?.model || "",

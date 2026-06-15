@@ -9,7 +9,7 @@ import {
     View,
     ViewStyle,
 } from "react-native";
-import { C, FONT } from "./theme";
+import { useTheme } from "./theme";
 
 // ─── Field Label ─────────────────────────────────────────────────────────────
 export function FieldLabel({
@@ -19,6 +19,7 @@ export function FieldLabel({
   text: string;
   style?: TextStyle;
 }) {
+  const { FONT } = useTheme();
   return <Text style={[FONT.label, { marginBottom: 6 }, style]}>{text}</Text>;
 }
 
@@ -30,6 +31,7 @@ export function Card({
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
+  const { C } = useTheme();
   return (
     <View
       style={[
@@ -61,27 +63,28 @@ export function Btn({
   style,
   ...rest
 }: BtnProps) {
+  const { C } = useTheme();
   const bg =
     disabled || loading
       ? C.surfaceAlt
       : variant === "primary"
-        ? C.greenDark
+        ? C.primary
         : variant === "danger"
           ? C.redDim
-          : "transparent";
+          : C.surface;
 
   const textColor =
     disabled || loading
       ? C.textDisabled
       : variant === "primary"
-        ? "#fff"
+        ? C.primaryText
         : variant === "danger"
           ? C.red
-          : C.green;
+          : C.textPrimary;
 
   const borderColor =
     variant === "outline"
-      ? C.green
+      ? C.borderMid
       : variant === "danger"
         ? C.red
         : "transparent";
@@ -89,7 +92,7 @@ export function Btn({
   return (
     <TouchableOpacity
       disabled={disabled || loading}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
       style={[
         {
           height: 52,
@@ -109,7 +112,7 @@ export function Btn({
           color: textColor,
           fontSize: 15,
           fontWeight: "700",
-          letterSpacing: 0.3,
+          letterSpacing: -0.1,
         }}
       >
         {loading ? "Loading..." : label}
@@ -128,6 +131,7 @@ export function InputBox({
   focused?: boolean;
   style?: ViewStyle;
 }) {
+  const { C } = useTheme();
   return (
     <View
       style={[
@@ -156,6 +160,7 @@ export function PageHeader({
   title: string;
   subtitle?: string;
 }) {
+  const { FONT } = useTheme();
   return (
     <View
       style={{ paddingTop: Platform.OS === "ios" ? 60 : 40, paddingBottom: 20 }}
@@ -182,6 +187,7 @@ export function EmptyState({
   action?: string;
   onAction?: () => void;
 }) {
+  const { C, FONT } = useTheme();
   return (
     <View
       style={{
@@ -242,6 +248,7 @@ export function ModalShell({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const { C, FONT } = useTheme();
   return (
     <View
       style={{

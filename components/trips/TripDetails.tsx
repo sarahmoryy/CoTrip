@@ -3,7 +3,7 @@ import { Modal, Text, View } from "react-native";
 import { Car } from "../../store/carSlice";
 import { Trip } from "../../store/tripSlice";
 import { Btn, ModalShell } from "../ui/primitives";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface Props {
   trip: Trip;
@@ -13,6 +13,7 @@ interface Props {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const { C } = useTheme();
   return (
     <View
       style={{
@@ -38,6 +39,7 @@ export default function TripDetails({
   onEditLocations,
   onClose,
 }: Props) {
+  const { C } = useTheme();
   const car = cars.find((c) => c.id === trip.car_id);
   const dateStr = trip.date
     ? new Date(trip.date).toLocaleDateString("en-CA", {

@@ -11,11 +11,12 @@ import {
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { Btn, Card } from "../../components/ui/primitives";
-import { C, FONT } from "../../components/ui/theme";
+import { ThemeOverride, useTheme } from "../../components/ui/theme";
 import { UserService } from "../../store/all";
 import { clearUser, UserState } from "../../store/userSlice";
 
 function InfoRow({ label, value }: { label: string; value: string }) {
+  const { C } = useTheme();
   return (
     <View
       style={{
@@ -44,6 +45,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function AccountScreen() {
+  const { C, FONT, override, setOverride } = useTheme();
   const [user, setUser] = useState<UserState | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -265,6 +267,51 @@ export default function AccountScreen() {
               <InfoRow label="Address" value={user?.address || ""} />
             </View>
           )}
+        </View>
+      </Card>
+
+      {/* Appearance */}
+      <Card style={{ marginBottom: 16, padding: 16 }}>
+        <Text style={[FONT.sectionTitle, { marginBottom: 12 }]}>
+          Appearance
+        </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            backgroundColor: C.surfaceAlt,
+            borderRadius: C.radius,
+            padding: 4,
+          }}
+        >
+          {(["system", "light", "dark", "fun"] as ThemeOverride[]).map((opt) => {
+            const active = override === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                onPress={() => setOverride(opt)}
+                activeOpacity={0.85}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: C.radius - 2,
+                  alignItems: "center",
+                  backgroundColor: active ? C.primary : "transparent",
+                }}
+              >
+                <Text
+                  style={{
+                    color: active ? C.primaryText : C.textSecondary,
+                    fontSize: 13,
+                    fontWeight: "700",
+                    textTransform: "capitalize",
+                    letterSpacing: -0.1,
+                  }}
+                >
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </Card>
 

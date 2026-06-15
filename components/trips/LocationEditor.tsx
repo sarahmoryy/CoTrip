@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { Btn, FieldLabel, ModalShell } from "../ui/primitives";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 // Reuse the same bottom sheet from SimplifiedTripForm
 function CarPickerSheet({
@@ -32,6 +32,7 @@ function CarPickerSheet({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
+  const { C } = useTheme();
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity
@@ -177,6 +178,7 @@ export default function LocationEditor({
   carList,
   onCancel,
 }: Props) {
+  const { C } = useTheme();
   const dispatch = useDispatch();
   const [form, setForm] = useState({
     from_location_name: trip.from_location_name || trip.from_location || "",

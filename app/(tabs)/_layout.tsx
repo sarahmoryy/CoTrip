@@ -1,15 +1,10 @@
 import { Tabs } from "expo-router";
-import {
-  ChartBar as BarChart2,
-  Car,
-  Home,
-  MapPin,
-  User,
-} from "lucide-react-native";
+import { Car, Home, MapPin, User } from "lucide-react-native";
 import React from "react";
-import { C } from "../../components/ui/theme";
+import { useTheme } from "../../components/ui/theme";
 
 export default function TabsLayout() {
+  const { C } = useTheme();
   return (
     <Tabs
       screenOptions={{
@@ -20,14 +15,14 @@ export default function TabsLayout() {
           backgroundColor: C.tabBg,
           borderTopWidth: 0.5,
           borderTopColor: C.tabBorder,
-          height: 80,
-          paddingBottom: 20,
+          height: 82,
+          paddingBottom: 22,
           paddingTop: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
-          letterSpacing: 0.2,
+          fontSize: 10,
+          fontWeight: "700",
+          letterSpacing: 0.3,
         },
         headerShown: false,
       }}
@@ -61,12 +56,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="savings"
-        options={{
-          title: "Savings",
-          tabBarIcon: ({ color, size }) => (
-            <BarChart2 color={color} size={size - 2} />
-          ),
-        }}
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="account"

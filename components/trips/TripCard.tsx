@@ -8,7 +8,7 @@ import React from "react";
 import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { Car } from "../../store/carSlice";
 import { Trip } from "../../store/tripSlice";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface TripCardProps {
   trip: Trip;
@@ -23,6 +23,7 @@ export default function TripCard({
   onClick,
   onDelete,
 }: TripCardProps) {
+  const { C } = useTheme();
   const car = cars.find((c) => c.id === trip.car_id);
   const carLabel = car ? `${car.make} ${car.model}` : trip.car_name;
   const dateStr = trip.date

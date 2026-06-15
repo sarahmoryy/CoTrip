@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState } from "react";
 import { Animated, Modal, Text, View } from "react-native";
 import { Trip } from "../../store/tripSlice";
 import { Btn, ModalShell } from "../ui/primitives";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface Props {
   trip: Trip;
@@ -13,6 +13,7 @@ interface Props {
 }
 
 export default function TripConfirmation({ trip, onConfirm, onCancel }: Props) {
+  const { C } = useTheme();
   const [showAnimation, setShowAnimation] = useState(false);
   const animationRef = useRef<LottieView>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;

@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSelector } from "react-redux";
 import { Card } from "../../components/ui/primitives";
-import { C, FONT } from "../../components/ui/theme";
+import { useTheme } from "../../components/ui/theme";
 import {
   selectTotalSavingsFromTrips,
   selectTrips,
@@ -62,6 +62,7 @@ const MONTH_LONG = [
 ];
 
 export default function SavingsScreen() {
+  const { C, FONT } = useTheme();
   const trips = useSelector(selectTrips);
   const totalSavings = useSelector(selectTotalSavingsFromTrips);
   const loading = useSelector((s: any) => s.trip?.loading) ?? false;
@@ -364,12 +365,12 @@ export default function SavingsScreen() {
                   borderRadius: 10,
                   marginBottom: 6,
                   backgroundColor:
-                    y === selectedYear ? C.greenDark : C.surfaceAlt,
+                    y === selectedYear ? C.primary : C.surfaceAlt,
                 }}
               >
                 <Text
                   style={{
-                    color: y === selectedYear ? "#fff" : C.textPrimary,
+                    color: y === selectedYear ? C.primaryText : C.textPrimary,
                     fontWeight: "600",
                     fontSize: 15,
                   }}

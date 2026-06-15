@@ -4,6 +4,7 @@ import { Car as CarIcon } from "lucide-react-native";
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -15,7 +16,7 @@ import {
 import { Car } from "../../store/carSlice";
 import { Trip } from "../../store/tripSlice";
 import { Btn, FieldLabel, ModalShell } from "../ui/primitives";
-import { C } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface Props {
   cars: Car[];
@@ -36,6 +37,7 @@ function CarPickerSheet({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
+  const { C } = useTheme();
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity
@@ -188,6 +190,7 @@ export default function SimplifiedTripForm({
   onCancel,
   isCalculating,
 }: Props) {
+  const { C } = useTheme();
   const [form, setForm] = useState<Trip>({
     id: "",
     destination: "",
@@ -257,11 +260,14 @@ export default function SimplifiedTripForm({
 
   return (
     <Modal visible animationType="slide" onRequestClose={onCancel}>
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: C.bg }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
+      >
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
-            justifyContent: "center",
             padding: 20,
           }}
           keyboardShouldPersistTaps="handled"
@@ -416,7 +422,7 @@ export default function SimplifiedTripForm({
             />
           </ModalShell>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
 
       {showCarPicker && (
         <CarPickerSheet
@@ -429,3 +435,4 @@ export default function SimplifiedTripForm({
     </Modal>
   );
 }
+1

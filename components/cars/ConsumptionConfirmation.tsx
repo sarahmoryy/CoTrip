@@ -3,7 +3,7 @@ import React from "react";
 import { Modal, Text, View } from "react-native";
 import { Car } from "../../store/carSlice";
 import { Btn, ModalShell } from "../ui/primitives";
-import { C, FONT } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 
 interface Props {
   car: Car;
@@ -18,6 +18,7 @@ export default function ConsumptionConfirmation({
   onConfirm,
   onReturn,
 }: Props) {
+  const { C, FONT } = useTheme();
   const mpg = Math.round((235.2 / consumption) * 10) / 10;
   const handleConfirm = () =>
     onConfirm({

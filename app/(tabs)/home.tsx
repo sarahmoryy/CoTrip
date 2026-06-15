@@ -1,20 +1,15 @@
 import { toMillis } from "@/assets/utils/conversion";
 import {
   endOfMonth,
-  format,
   isWithinInterval,
   startOfMonth,
 } from "date-fns";
 import { useFocusEffect, useRouter } from "expo-router";
-import {
-  Car as CarIcon,
-  DollarSign,
-  Plus,
-  TrendingUp,
-} from "lucide-react-native";
+import { ChevronRight, Plus } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -22,9 +17,8 @@ import {
   View,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
-import { C, FONT } from "../../components/ui/theme";
-import { CarService, TripService, UserService } from "../../store/all";
-import { setCars } from "../../store/carSlice";
+import { useTheme } from "../../components/ui/theme";
+import { TripService, UserService } from "../../store/all";
 import { RootState } from "../../store/store";
 import { setTrips } from "../../store/tripSlice";
 import { UserState } from "../../store/userSlice";
@@ -32,7 +26,8 @@ import { UserState } from "../../store/userSlice";
 const currency = new Intl.NumberFormat("en-CA", {
   style: "currency",
   currency: "CAD",
-  minimumFractionDigits: 2,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 const toNumber = (n: any) =>
   typeof n === "number" ? n : typeof n === "string" ? Number(n) || 0 : 0;
@@ -46,11 +41,56 @@ const parseTripDate = (input: any): Date => {
   return new Date(0);
 };
 
+type MockFolder = {
+  id: string;
+  name: string;
+  emoji: string;
+  accent: string;
+  memberCount: number;
+  postCount: number;
+};
+
+// Backend wires up next — pure UI scaffolding for now.
+const MOCK_FOLDERS: MockFolder[] = [
+  {
+    id: "mcgill",
+    name: "McGill",
+    emoji: "🎓",
+    accent: "#ef4444",
+    memberCount: 6,
+    postCount: 12,
+  },
+  {
+    id: "family",
+    name: "Family",
+    emoji: "👨‍👩‍👧",
+    accent: "#f59e0b",
+    memberCount: 4,
+    postCount: 8,
+  },
+  {
+    id: "roommates",
+    name: "Roommates",
+    emoji: "🏠",
+    accent: "#8b5cf6",
+    memberCount: 3,
+    postCount: 5,
+  },
+  {
+    id: "ski-crew",
+    name: "Ski crew",
+    emoji: "🎿",
+    accent: "#0ea5e9",
+    memberCount: 5,
+    postCount: 2,
+  },
+];
+
 export default function HomeScreen() {
+  const { C, FONT } = useTheme();
   const dispatch = useDispatch();
   const router = useRouter();
   const trips = useSelector((s: RootState) => s.trip.trips);
-  const cars = useSelector((s: RootState) => s.car.cars);
   const [user, setUser] = useState<UserState | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [bootLoading, setBootLoading] = useState(true);
@@ -58,10 +98,9 @@ export default function HomeScreen() {
   const fetchAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [userData, tripsData, carsData] = await Promise.all([
+      const [userData, tripsData] = await Promise.all([
         UserService.me(),
         TripService.list("-created_date", 50),
-        CarService.list(),
       ]);
       setUser(userData);
       if (tripsData)
@@ -73,17 +112,6 @@ export default function HomeScreen() {
               createdAt: toMillis(t.createdAt),
               updatedAt: toMillis(t.updatedAt),
               savings: toNumber(t.savings),
-            })),
-          ),
-        );
-      if (carsData)
-        dispatch(
-          setCars(
-            carsData.map((c: any) => ({
-              ...c,
-              createdAt: toMillis(c.createdAt),
-              updatedAt: toMillis(c.updatedAt),
-              year: toNumber(c.year),
             })),
           ),
         );
@@ -120,18 +148,6 @@ export default function HomeScreen() {
     () => tripsThisMonth.reduce((sum, t) => sum + toNumber(t.savings), 0),
     [tripsThisMonth],
   );
-  const totalSavings = useMemo(
-    () => trips.reduce((sum, t) => sum + toNumber(t.savings), 0),
-    [trips],
-  );
-  const recentTrips = useMemo(
-    () =>
-      [...trips].sort(
-        (a, b) =>
-          parseTripDate(b.date).getTime() - parseTripDate(a.date).getTime(),
-      ),
-    [trips],
-  );
 
   if (bootLoading) {
     return (
@@ -143,255 +159,282 @@ export default function HomeScreen() {
           backgroundColor: C.bg,
         }}
       >
-        <ActivityIndicator size="large" color={C.green} />
+        <ActivityIndicator size="large" color={C.textPrimary} />
       </View>
     );
   }
 
   const firstName = user?.full_name?.split(" ")[0] || "";
 
+  const handleNewFolder = () => {
+    Alert.alert(
+      "New folder",
+      "Folder creation wires up with the backend next. For now this is the UI scaffold.",
+    );
+  };
+
+  const openFolder = (folder: MockFolder) => {
+    router.push({
+      pathname: "/folder/[id]",
+      params: {
+        id: folder.id,
+        name: folder.name,
+        emoji: folder.emoji,
+        accent: folder.accent,
+      },
+    });
+  };
+
   return (
-    <View
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 64,
+          paddingBottom: 32,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchAll}
+            tintColor={C.textPrimary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header — Uber-style large bold greeting */}
+        <View style={{ paddingBottom: 28 }}>
+          <Text
+            style={{
+              color: C.textMuted,
+              fontSize: 13,
+              fontWeight: "600",
+              letterSpacing: 0.2,
+            }}
+          >
+            Welcome back
+          </Text>
+          <Text style={[FONT.pageTitle, { marginTop: 4 }]}>
+            {firstName || "Driver"} 👋
+          </Text>
+        </View>
+
+        {/* Savings card — prominent rounded box, clearly tappable */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/(tabs)/trips")}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: C.surface,
+            borderRadius: C.radiusLg,
+            paddingVertical: 18,
+            paddingHorizontal: 18,
+            marginBottom: 32,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                color: C.textMuted,
+                fontSize: 11,
+                fontWeight: "700",
+                letterSpacing: 0.6,
+                textTransform: "uppercase",
+              }}
+            >
+              Saved this month
+            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "baseline",
+                marginTop: 4,
+              }}
+            >
+              <Text style={FONT.stat}>
+                {currency.format(monthlySavings)}
+              </Text>
+              <Text
+                style={{
+                  color: C.textMuted,
+                  fontSize: 13,
+                  marginLeft: 8,
+                  fontWeight: "500",
+                }}
+              >
+                {tripsThisMonth.length} trip
+                {tripsThisMonth.length === 1 ? "" : "s"}
+              </Text>
+            </View>
+          </View>
+          <ChevronRight color={C.textMuted} size={20} />
+        </TouchableOpacity>
+
+        {/* Folders section header */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
+          <Text style={FONT.sectionTitle}>Folders</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleNewFolder}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+              paddingVertical: 4,
+              paddingHorizontal: 4,
+            }}
+          >
+            <Plus color={C.textPrimary} size={14} />
+            <Text
+              style={{
+                color: C.textPrimary,
+                fontSize: 13,
+                fontWeight: "700",
+              }}
+            >
+              New
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            rowGap: 12,
+          }}
+        >
+          {MOCK_FOLDERS.map((f) => (
+            <FolderTile key={f.id} folder={f} onPress={() => openFolder(f)} />
+          ))}
+          <NewFolderTile onPress={handleNewFolder} />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function FolderTile({
+  folder,
+  onPress,
+}: {
+  folder: MockFolder;
+  onPress: () => void;
+}) {
+  const { C } = useTheme();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
       style={{
-        flex: 1,
-        backgroundColor: C.bg,
-        paddingHorizontal: 20,
-        paddingBottom: 32,
+        width: "48.5%",
+        backgroundColor: C.surface,
+        borderRadius: C.radiusLg,
+        padding: 16,
+        minHeight: 140,
+        justifyContent: "space-between",
       }}
     >
-      {/* Header */}
-      <View style={{ paddingTop: 64, paddingBottom: 24 }}>
-        <Text style={{ color: C.textMuted, fontSize: 14 }}>Welcome back,</Text>
+      {/* Top row: icon chip + chevron */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+        }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            backgroundColor: folder.accent + "1F",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 18 }}>{folder.emoji}</Text>
+        </View>
+        <ChevronRight color={C.textMuted} size={16} />
+      </View>
+
+      {/* Bottom: name + meta */}
+      <View style={{ marginTop: 24 }}>
         <Text
           style={{
             color: C.textPrimary,
-            fontSize: 28,
+            fontSize: 16,
             fontWeight: "700",
-            marginTop: 2,
+            letterSpacing: -0.2,
           }}
+          numberOfLines={1}
         >
-          {firstName} 👋
+          {folder.name}
         </Text>
-      </View>
-
-      {/* Hero savings card */}
-      <View
-        style={{
-          backgroundColor: C.surface,
-          borderRadius: 20,
-          padding: 24,
-          borderWidth: 0.5,
-          borderColor: C.border,
-          marginBottom: 16,
-          alignItems: "center",
-        }}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginBottom: 8,
-          }}
-        >
-          <TrendingUp color={C.green} size={16} />
-          <Text style={{ color: C.textMuted, fontSize: 13, marginLeft: 6 }}>
-            Saved this month
-          </Text>
-        </View>
         <Text
           style={{
-            color: C.green,
-            fontSize: 40,
-            fontWeight: "700",
-            letterSpacing: -1,
+            color: C.textMuted,
+            fontSize: 12,
+            marginTop: 4,
+            fontWeight: "500",
           }}
         >
-          {currency.format(monthlySavings)}
-        </Text>
-        <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
-          {tripsThisMonth.length} CoTrip{tripsThisMonth.length === 1 ? "" : "s"}{" "}
-          this month
+          {folder.memberCount} members · {folder.postCount} posts
         </Text>
       </View>
+    </TouchableOpacity>
+  );
+}
 
-      {/* Stats row */}
-      <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: C.surface,
-            borderRadius: 16,
-            padding: 18,
-            borderWidth: 0.5,
-            borderColor: C.border,
-            alignItems: "center",
-          }}
-        >
-          <DollarSign color={C.green} size={22} />
-          <Text
-            style={{
-              color: C.textPrimary,
-              fontSize: 18,
-              fontWeight: "700",
-              marginTop: 8,
-            }}
-          >
-            {currency.format(totalSavings)}
-          </Text>
-          <Text style={{ color: C.textMuted, fontSize: 12, marginTop: 2 }}>
-            All-time savings
-          </Text>
-        </View>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: C.surface,
-            borderRadius: 16,
-            padding: 18,
-            borderWidth: 0.5,
-            borderColor: C.border,
-            alignItems: "center",
-          }}
-        >
-          <CarIcon color={C.green} size={22} />
-          <Text
-            style={{
-              color: C.textPrimary,
-              fontSize: 18,
-              fontWeight: "700",
-              marginTop: 8,
-            }}
-          >
-            {cars.length}
-          </Text>
-          <Text style={{ color: C.textMuted, fontSize: 12, marginTop: 2 }}>
-            Your cars
-          </Text>
-        </View>
-      </View>
-
-      {/* Recent trips */}
+function NewFolderTile({ onPress }: { onPress: () => void }) {
+  const { C } = useTheme();
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={onPress}
+      style={{
+        width: "48.5%",
+        minHeight: 140,
+        borderRadius: C.radiusLg,
+        borderWidth: 1,
+        borderColor: C.borderMid,
+        borderStyle: "dashed",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
       <View
         style={{
-          flex: 1,
-          backgroundColor: C.surface,
-          borderRadius: 16,
-          padding: 20,
-          borderWidth: 0.5,
-          borderColor: C.border,
-          marginBottom: 20,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: C.surfaceAlt,
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <Text style={[FONT.sectionTitle, { marginBottom: 16 }]}>
-          Recent trips
-        </Text>
-        {recentTrips.length > 0 ? (
-          <ScrollView
-            style={{ flex: 1 }}
-            showsVerticalScrollIndicator
-            indicatorStyle="white"
-            persistentScrollbar
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={fetchAll}
-                tintColor={C.green}
-              />
-            }
-          >
-            {recentTrips.map((trip) => {
-              const d = parseTripDate(trip.date);
-              return (
-                <View
-                  key={trip.id}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingVertical: 10,
-                    borderBottomWidth: 0.5,
-                    borderBottomColor: C.border,
-                  }}
-                >
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text
-                      style={{
-                        color: C.textSecondary,
-                        fontSize: 12,
-                        marginBottom: 2,
-                      }}
-                    >
-                      {format(d, "EEE, MMM d")}
-                    </Text>
-                    <Text
-                      style={{ color: C.textPrimary, fontSize: 14 }}
-                      numberOfLines={1}
-                    >
-                      {trip.from_location_name || trip.from_location} →{" "}
-                      {trip.to_location_name || trip.to_location}
-                    </Text>
-                  </View>
-                  <Text
-                    style={{ color: C.green, fontSize: 14, fontWeight: "700" }}
-                  >
-                    {currency.format(toNumber(trip.savings))}
-                  </Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-        ) : (
-          <Text style={{ color: C.textMuted, fontSize: 14 }}>
-            No trips yet
-          </Text>
-        )}
+        <Plus color={C.textPrimary} size={18} />
       </View>
-
-      {/* CTA buttons */}
-      <View style={{ flexDirection: "row", gap: 12 }}>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push("/(tabs)/trips")}
-          style={{
-            flex: 1,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            height: 52,
-            backgroundColor: C.greenDark,
-            borderRadius: C.radius,
-            gap: 8,
-          }}
-        >
-          <Plus color="#fff" size={18} />
-          <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
-            New Trip
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push("/(tabs)/cars")}
-          style={{
-            flex: 1,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            height: 52,
-            backgroundColor: C.surface,
-            borderRadius: C.radius,
-            borderWidth: 1,
-            borderColor: C.borderMid,
-            gap: 8,
-          }}
-        >
-          <CarIcon color={C.green} size={18} />
-          <Text
-            style={{ color: C.textPrimary, fontSize: 15, fontWeight: "600" }}
-          >
-            Add Car
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      <Text
+        style={{
+          color: C.textSecondary,
+          fontSize: 13,
+          fontWeight: "600",
+          marginTop: 10,
+        }}
+      >
+        New folder
+      </Text>
+    </TouchableOpacity>
   );
 }
