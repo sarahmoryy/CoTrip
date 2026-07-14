@@ -1,30 +1,27 @@
 import { router } from "expo-router";
-import { useEffect } from "react";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { supabase } from "../SupabaseConfig";
 
 export default function Index() {
+  const [checked, setChecked] = useState(false);
+
   useEffect(() => {
-    let redirected = false;
+    const auth = getAuth();
 
-    const redirect = (hasSession: boolean) => {
-      if (redirected) return;
-      redirected = true;
-      router.replace(hasSession ? "/home" : "/login");
-    };
-
-    supabase.auth.getSession().then(({ data }) => {
-      redirect(!!data.session);
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+      if (!checked) {
+        if (user) {
+          router.replace("/home");
+        } else {
+          router.replace("/login");
+        }
+        setChecked(true); // ✅ prevents loop
+      }
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      redirect(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    return unsubscribe;
+  }, [checked]);
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

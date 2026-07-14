@@ -1,18 +1,98 @@
-import { useRouter } from 'expo-router';
-import { Lock, Mail, User as UserIcon } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { UserService } from '../store/all';
+import { useRouter } from "expo-router";
+import { Lock, Mail, User as UserIcon } from "lucide-react-native";
+import React, { useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Btn } from "../components/ui/primitives";
+import { useTheme } from "../components/ui/theme";
+import { UserService } from "../store/all";
+
+function Field({
+  label,
+  icon,
+  value,
+  onChange,
+  placeholder,
+  secure,
+  keyboard,
+}: any) {
+  const { C } = useTheme();
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text
+        style={{
+          color: C.textMuted,
+          fontSize: 11,
+          fontWeight: "600",
+          letterSpacing: 0.7,
+          textTransform: "uppercase",
+          marginBottom: 8,
+        }}
+      >
+        {label}
+      </Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: C.surfaceAlt,
+          borderWidth: 1,
+          borderColor: focused ? C.borderFocus : C.borderMid,
+          borderRadius: C.radius,
+          height: 52,
+          paddingHorizontal: 12,
+        }}
+      >
+        {icon &&
+          React.cloneElement(icon, {
+            color: focused ? C.green : C.textMuted,
+            size: 16,
+            style: { marginRight: 10 },
+          })}
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          placeholderTextColor={C.textMuted}
+          secureTextEntry={secure}
+          keyboardType={keyboard}
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType={secure ? "oneTimeCode" : undefined}
+          style={{
+            flex: 1,
+            color: C.textPrimary,
+            fontSize: 15,
+            paddingVertical: 0,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
 
 export default function SignupScreen() {
+  const { C } = useTheme();
   const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    full_name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const set = (k: string) => (v: string) =>
+    setFormData((p) => ({ ...p, [k]: v }));
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -21,153 +101,123 @@ export default function SignupScreen() {
         formData.full_name,
         formData.email,
         formData.password,
-        formData.confirmPassword
+        formData.confirmPassword,
       );
-      Alert.alert('Success', 'Account created! Please log in.');
-      router.push('/login');
+      Alert.alert("Success", "Account created! Please log in.");
+      router.push("/login");
     } catch (error) {
-      console.error('Error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'An unknown error occurred';
-      Alert.alert('Error', errorMessage);
+      Alert.alert(
+        "Error",
+        error instanceof Error ? error.message : "An unknown error occurred",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-black" contentContainerClassName="px-6 py-12">
-      {/* Header */}
-      <View className="items-center mb-8 mt-16">
-        <View className="w-28 h-28 bg-main/20 rounded-full items-center justify-center mb-4">
-          <UserIcon color="#4ade80" size={55} />
-        </View>
-        <Text className="text-3xl font-bold text-main mt-2 mb-2">Create Account</Text>
-        <Text className="text-gray-400 text-xl text-center">Set up your account</Text>
-      </View>
-
-      {/* Form Card */}
-      <View className="bg-gray-900 rounded-xl p-6 mb-6">
-        <View className="space-y-6">
-          {/* Full Name */}
-          <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Full Name</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14 px-2">
-              <TextInput
-                value={formData.full_name}
-                onChangeText={(text) => setFormData({ ...formData, full_name: text })}
-                placeholder="Enter full name"
-                placeholderTextColor="#9ca3af"
-                style={{
-                  flex: 1,
-                  color: '#fff',
-                  fontSize: 18,
-                  lineHeight: 22,
-                  height: '100%',
-                  paddingVertical: 0,
-                  textAlignVertical: 'center',
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Email */}
-          <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Email</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
-              <Mail color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
-              <TextInput
-                value={formData.email}
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                placeholder="Enter email"
-                placeholderTextColor="#9ca3af"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={{
-                  flex: 1,
-                  color: '#fff',
-                  fontSize: 18,
-                  lineHeight: 22,
-                  height: '100%',
-                  paddingVertical: 0,
-                  textAlignVertical: 'center',
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Password */}
-          <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Password</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
-              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
-              <TextInput
-                value={formData.password}
-                onChangeText={(text) => setFormData({ ...formData, password: text })}
-                placeholder="Enter password"
-                placeholderTextColor="#9ca3af"
-                secureTextEntry
-                textContentType="oneTimeCode"
-                style={{
-                  flex: 1,
-                  color: '#fff',
-                  fontSize: 18,
-                  lineHeight: 22,
-                  height: '100%',
-                  paddingVertical: 0,
-                  textAlignVertical: 'center',
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Confirm Password */}
-          <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Confirm Password</Text>
-            <View className="flex-row items-center bg-gray-800 rounded-lg mb-5 h-14">
-              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
-              <TextInput
-                value={formData.confirmPassword}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, confirmPassword: text })
-                }
-                placeholder="Confirm password"
-                placeholderTextColor="#9ca3af"
-                secureTextEntry
-                textContentType="oneTimeCode"
-                style={{
-                  flex: 1,
-                  color: '#fff',
-                  fontSize: 18,
-                  lineHeight: 22,
-                  height: '100%',
-                  paddingVertical: 0,
-                  textAlignVertical: 'center',
-                }}
-              />
-            </View>
-          </View>
-
-          {/* Create Account Button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            className="bg-main rounded-lg py-3 items-center"
-            disabled={loading}
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: 60,
+          paddingHorizontal: 24,
+          paddingBottom: 40,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        automaticallyAdjustKeyboardInsets
+      >
+        <View style={{ alignItems: "center", marginBottom: 36 }}>
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              backgroundColor: C.greenTint,
+              borderRadius: 36,
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 0.5,
+              borderColor: "rgba(74,222,128,0.25)",
+              marginBottom: 16,
+            }}
           >
-            <Text className="text-white text-lg font-medium">
-              {loading ? 'Processing...' : 'Create Account'}
+            <UserIcon color={C.green} size={32} />
+          </View>
+          <Text
+            style={{ color: C.textPrimary, fontSize: 26, fontWeight: "700" }}
+          >
+            Create account
+          </Text>
+          <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 6 }}>
+            Join the carpooling community
+          </Text>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: C.surface,
+            borderRadius: 20,
+            padding: 24,
+            borderWidth: 0.5,
+            borderColor: C.border,
+            marginBottom: 32,
+          }}
+        >
+          <Field
+            label="Full name"
+            icon={<UserIcon />}
+            value={formData.full_name}
+            onChange={set("full_name")}
+            placeholder="Your name"
+          />
+          <Field
+            label="Email"
+            icon={<Mail />}
+            value={formData.email}
+            onChange={set("email")}
+            placeholder="your@email.com"
+            keyboard="email-address"
+          />
+          <Field
+            label="Password"
+            icon={<Lock />}
+            value={formData.password}
+            onChange={set("password")}
+            placeholder="••••••••"
+            secure
+          />
+          <Field
+            label="Confirm password"
+            icon={<Lock />}
+            value={formData.confirmPassword}
+            onChange={set("confirmPassword")}
+            placeholder="••••••••"
+            secure
+          />
+          <View style={{ marginTop: 8 }}>
+            <Btn
+              label="Create account"
+              loading={loading}
+              onPress={handleSubmit}
+            />
+          </View>
+        </View>
+
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ color: C.textMuted, fontSize: 14, marginBottom: 8 }}>
+            Already have an account?
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.push("/login")}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={{ color: C.green, fontSize: 15, fontWeight: "600" }}>
+              Sign in
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Back to Login Link */}
-      <View className="items-center">
-        <Text className="text-gray-400 text-xl mb-2">Already have an account? </Text>
-        <TouchableOpacity onPress={() => router.push('/login')}>
-          <Text className="text-main text-xl font-medium">Sign In</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

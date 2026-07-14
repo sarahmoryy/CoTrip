@@ -1,0 +1,107 @@
+rules_version = '2';
+
+// Recommended rules for the planned trip-folder social feature.
+// Deploy with: firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // -------- Users --------
+    // Profile docs are readable by anyone signed in (so members can see names
+    // in a folder feed), but only the user can write their own profile.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSelf(uid);
+
+      // Private per-user collections (trips, cars, savings) — owner only.
+      match /{subcollection}/{docId=**} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // -------- User index (email -> uid lookup for invites) --------
+    // Public-read so any signed-in user can resolve an email to a uid when
+    // inviting. Write only your own entry, and only one matching your auth.
+    match /userIndex/{emailKey} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // -------- Folders --------
+    function folderData() {
+      return get(/databases/$(database)/documents/folders/$(folderId)).data;
+    }
+    function isMember(folderId) {
+      return isSignedIn()
+        && request.auth.uid in
+           get(/databases/$(database)/documents/folders/$(folderId)).data.memberUids;
+    }
+    function isOwner(folderId) {
+      return isSignedIn()
+        && request.auth.uid ==
+           get(/databases/$(database)/documents/folders/$(folderId)).data.ownerUid;
+    }
+
+    match /folders/{folderId} {
+      // Members can read the folder doc.
+      allow read: if isSignedIn()
+        && request.auth.uid in resource.data.memberUids;
+
+      // Anyone signed in can create a folder, but they must list themselves
+      // as the owner AND be in the member list.
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.auth.uid in request.resource.data.memberUids;
+
+      // Update rules:
+      //  - The owner can change anything (rename, etc.).
+      //  - Any signed-in user can add THEMSELVES to memberUids (join via
+      //    invite code). They can only add their own uid, and only if the
+      //    rest of the doc stays unchanged.
+      allow update: if
+        // Owner can do anything.
+        (isSignedIn()
+          && resource.data.ownerUid == request.auth.uid)
+        // Or: self-join — only memberUids changes, only your uid is added.
+        || (isSignedIn()
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['memberUids', 'updatedAt'])
+          && request.resource.data.memberUids
+               .hasAll(resource.data.memberUids)
+          && request.resource.data.memberUids.size()
+               == resource.data.memberUids.size() + 1
+          && request.auth.uid in request.resource.data.memberUids
+          && !(request.auth.uid in resource.data.memberUids));
+
+      // Only the owner can delete the folder.
+      allow delete: if isSignedIn()
+        && resource.data.ownerUid == request.auth.uid;
+
+      // -------- Posts inside a folder --------
+      match /posts/{postId} {
+        // Any member can read.
+        allow read: if isMember(folderId);
+
+        // Any member can post — must set themselves as author.
+        allow create: if isMember(folderId)
+          && request.resource.data.authorUid == request.auth.uid;
+
+        // Only the post author can edit / delete their own post.
+        // (Folder owner could also delete — uncomment if you want that.)
+        allow update, delete: if isSignedIn()
+          && resource.data.authorUid == request.auth.uid;
+        // || isOwner(folderId);
+      }
+    }
+  }
+}

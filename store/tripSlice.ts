@@ -12,6 +12,7 @@ export interface Trip {
   to_location?: string;
   passengers?: string;
   car_id?: string;
+  car_name?: string;
   cost?: number;
   savings?: number;
   distance?: number;

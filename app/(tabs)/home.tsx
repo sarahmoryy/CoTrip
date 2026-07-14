@@ -1,292 +1,261 @@
-import { toMillis } from "@/assets/utils/conversion";
 import {
-  endOfMonth,
-  endOfWeek,
-  format,
-  isWithinInterval,
-  startOfMonth,
-  startOfWeek,
-} from "date-fns";
-import { useFocusEffect, useRouter } from "expo-router";
-import { Car as CarIcon, DollarSign, PlusIcon } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+  Car,
+  ChevronLeft,
+  MoreVertical,
+  Plus,
+  Search,
+  Users,
+} from "lucide-react-native";
+import React from "react";
+import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useApp } from "../../components/mockup/AppContext";
+import { findUser } from "../../components/mockup/data";
+import { M, RADIUS } from "../../components/mockup/theme";
 import {
-  ActivityIndicator,
-  Image,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useDispatch, useSelector } from "react-redux";
-import { CarService, TripService, UserService } from "../../store/all";
-import { setCars } from "../../store/carSlice";
-import { RootState } from "../../store/store";
-import { setTrips } from "../../store/tripSlice";
-import { UserState } from "../../store/userSlice";
-
-const logoIcon = require("../../assets/images/Car_Auto.png");
-
-// CAD currency formatter
-const currency = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const toNumber = (n: any) =>
-  typeof n === "number" ? n : typeof n === "string" ? Number(n) || 0 : 0;
-
-const parseTripDate = (input: any): Date => {
-  if (!input) return new Date(0);
-  if (input instanceof Date) return input;
-  if (typeof input === "number") return new Date(input);
-  if (typeof input === "string") return new Date(input);
-  if (typeof input === "object" && "seconds" in input)
-    return new Date(input.seconds * 1000);
-  return new Date(0);
-};
+  Btn,
+  DisclaimerCard,
+  GroupCard,
+  MockScreen,
+  RideCard,
+  SectionHeader,
+  ShellCard,
+  textInputStyle,
+} from "../../components/mockup/ui";
 
 export default function HomeScreen() {
-  const dispatch = useDispatch();
-  const router = useRouter();
+  const {
+    groups,
+    users,
+    ungroupedRides,
+    selectedGroupId,
+    setSelectedGroupId,
+    joinGroup,
+    openJoinRequest,
+    resetCreateGroupDraft,
+    setCreateGroupOpen,
+    ridesByGroup,
+    newMemberEmail,
+    setNewMemberEmail,
+    addMemberToSelectedGroup,
+    removeMemberFromSelectedGroup,
+  } = useApp();
 
-  const trips = useSelector((s: RootState) => s.trip.trips);
-  const cars = useSelector((s: RootState) => s.car.cars);
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
-  const [user, setUser] = useState<UserState | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [bootLoading, setBootLoading] = useState(true);
-
-  // 🔑 Measure height of ONE trip row
-  const [weekRowHeight, setWeekRowHeight] = useState<number>(0);
-
-  const fetchAll = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const [userData, tripsData, carsData] = await Promise.all([
-        UserService.me(),
-        TripService.list("-created_date", 50),
-        CarService.list(),
-      ]);
-
-      setUser(userData);
-
-      if (tripsData) {
-        dispatch(
-          setTrips(
-            tripsData.map((t: any) => ({
-              ...t,
-              date: toMillis(t.date),
-              createdAt: toMillis(t.createdAt),
-              updatedAt: toMillis(t.updatedAt),
-              savings: toNumber(t.savings),
-            })),
-          ),
-        );
-      }
-
-      if (carsData) {
-        dispatch(
-          setCars(
-            carsData.map((c: any) => ({
-              ...c,
-              createdAt: toMillis(c.createdAt),
-              updatedAt: toMillis(c.updatedAt),
-              year: toNumber(c.year),
-            })),
-          ),
-        );
-      }
-    } finally {
-      setRefreshing(false);
-      setBootLoading(false);
-    }
-  }, [dispatch]);
-
-  React.useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchAll();
-    }, [fetchAll]),
-  );
-
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-
-  const tripsThisMonth = useMemo(
-    () =>
-      trips.filter((t) =>
-        isWithinInterval(parseTripDate(t.date), {
-          start: monthStart,
-          end: monthEnd,
-        }),
-      ),
-    [trips],
-  );
-
-  const monthlySavings = useMemo(
-    () => tripsThisMonth.reduce((s, t) => s + toNumber(t.savings), 0),
-    [tripsThisMonth],
-  );
-
-  const totalSavings = useMemo(
-    () => trips.reduce((s, t) => s + toNumber(t.savings), 0),
-    [trips],
-  );
-
-  const tripsThisWeek = useMemo(
-    () =>
-      trips
-        .filter((t) =>
-          isWithinInterval(parseTripDate(t.date), {
-            start: weekStart,
-            end: weekEnd,
-          }),
-        )
-        .sort(
-          (a, b) =>
-            parseTripDate(b.date).getTime() - parseTripDate(a.date).getTime(),
-        ),
-    [trips],
-  );
-
-  if (bootLoading) {
+  if (selectedGroup) {
+    const selectedGroupRides = ridesByGroup[selectedGroup.id] || [];
+    const selectedGroupMembers = selectedGroup.memberIds.map((id) =>
+      findUser(users, id),
+    );
     return (
-      <View className="flex-1 justify-center items-center bg-black">
-        <ActivityIndicator size="large" color="#4ade80" />
-      </View>
+      <MockScreen>
+        <TouchableOpacity
+          onPress={() => setSelectedGroupId(null)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+        >
+          <ChevronLeft color={M.stone500} size={18} />
+          <Text style={{ color: M.stone500, fontWeight: "700", fontSize: 13 }}>
+            Your Groups
+          </Text>
+        </TouchableOpacity>
+
+        <View>
+          <Text style={{ fontSize: 28, fontWeight: "900", color: M.stone950 }}>
+            {selectedGroup.name}
+          </Text>
+          <Text style={{ marginTop: 4, fontSize: 13, color: M.stone500 }}>
+            {selectedGroup.description}
+          </Text>
+        </View>
+
+        <ShellCard>
+          <View style={{ padding: 16, gap: 16 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text
+                style={{ fontWeight: "900", color: M.stone950, fontSize: 14 }}
+              >
+                Members
+              </Text>
+              <MoreVertical color={M.amber500} size={20} />
+            </View>
+
+            <View style={{ gap: 8 }}>
+              {selectedGroupMembers.map((m) => (
+                <View
+                  key={m.id}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    backgroundColor: M.stone50,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: RADIUS.md,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: m.avatar }}
+                      style={{ width: 36, height: 36, borderRadius: 18 }}
+                    />
+                    <View>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "700",
+                          color: M.stone950,
+                        }}
+                      >
+                        {m.name}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: M.stone500 }}>
+                        {m.email}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => removeMemberFromSelectedGroup(m.id)}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "700",
+                        color: M.amber600,
+                      }}
+                    >
+                      Remove
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TextInput
+                placeholder="Add member email"
+                placeholderTextColor={M.stone400}
+                value={newMemberEmail}
+                onChangeText={setNewMemberEmail}
+                style={[textInputStyle(), { flex: 1, paddingVertical: 10 }]}
+                autoCapitalize="none"
+              />
+              <Btn onPress={addMemberToSelectedGroup}>Add</Btn>
+            </View>
+          </View>
+        </ShellCard>
+
+        <SectionHeader
+          icon={<Car color={M.amber500} size={22} />}
+          title="Shared Rides"
+        />
+        {selectedGroupRides.length === 0 ? (
+          <ShellCard>
+            <View style={{ padding: 20, alignItems: "center" }}>
+              <Text style={{ color: M.stone500, fontSize: 13 }}>
+                No shared rides yet.
+              </Text>
+            </View>
+          </ShellCard>
+        ) : (
+          selectedGroupRides.map((ride) => (
+            <RideCard
+              key={ride.id}
+              ride={ride}
+              driver={findUser(users, ride.driverId)}
+              onOpenJoin={openJoinRequest}
+            />
+          ))
+        )}
+      </MockScreen>
     );
   }
 
   return (
-    <ScrollView
-      className="flex-1 bg-black p-5"
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={fetchAll} />
-      }
-    >
-      {/* Header */}
-      <View className="items-center mb-6">
-        <View className="bg-main w-24 h-24 rounded-full justify-center items-center mb-8 mt-16">
-          <Image source={logoIcon} style={{ width: 52, height: 52 }} />
-        </View>
-
-        <Text className="text-white text-4xl font-bold mb-5">
-          Hello {user?.full_name || ""},
-        </Text>
-
-        <Text className="text-gray-400 text-2xl">You’ve saved</Text>
-        <Text className="text-4xl text-green-400 font-bold my-2">
-          {currency.format(monthlySavings)}
-        </Text>
-
-        <Text className="text-gray-400 text-2xl mb-2">
-          with {tripsThisMonth.length} CoTrip
-          {tripsThisMonth.length === 1 ? "" : "s"} this month
-        </Text>
-      </View>
-
-      {/* Stats */}
-      <View className="flex-row gap-4 mb-5">
-        <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center">
-          <DollarSign color="#10B981" size={32} />
-          <Text className="text-white text-2xl font-bold mt-2">
-            {currency.format(totalSavings)}
-          </Text>
-          <Text className="text-gray-400 text-xl">Total Savings</Text>
-        </View>
-
-        <View className="flex-1 bg-gray-900 rounded-xl p-5 items-center">
-          <CarIcon color="#10B981" size={32} />
-          <Text className="text-white text-2xl font-bold mt-2">
-            {cars.length}
-          </Text>
-          <Text className="text-gray-400 text-xl">Your Cars</Text>
-        </View>
-      </View>
-
-      {/* This Week */}
-      <View className="bg-gray-900 rounded-xl p-4 mb-4">
-        <Text className="text-white text-xl font-bold mb-3">This week</Text>
-
-        {tripsThisWeek.length > 0 ? (
-          <View
-            style={{
-              maxHeight: weekRowHeight ? weekRowHeight * 5 : 280,
-            }}
-          >
-            <ScrollView
-              showsVerticalScrollIndicator
-              indicatorStyle="white"
-              contentContainerStyle={{
-                paddingRight: 16, // 🔑 prevents overlap
-                paddingVertical: 4,
-              }}
-            >
-              {tripsThisWeek.map((trip, index) => {
-                const d = parseTripDate(trip.date);
-                return (
-                  <View
-                    key={trip.id}
-                    className="flex-row justify-between items-center mb-3"
-                    onLayout={(e) => {
-                      if (index === 0 && !weekRowHeight) {
-                        setWeekRowHeight(e.nativeEvent.layout.height + 3);
-                      }
-                    }}
-                  >
-                    <View className="flex-1 pr-3">
-                      <Text className="text-white">
-                        {format(d, "EEE, MMM d")}:
-                      </Text>
-                      <Text className="text-gray-400 text-sm" numberOfLines={1}>
-                        From {trip.from_location_name || trip.from_location} →{" "}
-                        {trip.to_location_name || trip.to_location}
-                      </Text>
-                    </View>
-
-                    <Text className="text-main font-semibold mr-1">
-                      {currency.format(toNumber(trip.savings))}
-                    </Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : (
-          <Text className="text-gray-400 text-lg">No trips yet this week</Text>
-        )}
-      </View>
-
-      {/* Buttons */}
-      <View className="flex-row justify-around p-4">
-        <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center py-3 bg-main rounded-lg mr-3"
-          onPress={() => router.push("/(tabs)/trips")}
+    <MockScreen>
+      <View style={{ paddingTop: 8, alignItems: "center" }}>
+        <Text
+          style={{
+            fontSize: 36,
+            fontWeight: "900",
+            color: M.amber500,
+            letterSpacing: -0.5,
+          }}
         >
-          <PlusIcon color="white" />
-          <Text className="text-white text-xl ml-3 font-semibold">
-            New Trip
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center py-3 bg-main rounded-lg ml-3"
-          onPress={() => router.push("/(tabs)/cars")}
-        >
-          <CarIcon color="white" />
-          <Text className="text-white text-xl ml-3 font-semibold">Add Car</Text>
-        </TouchableOpacity>
+          CoTrip
+        </Text>
+        <Text style={{ marginTop: 4, fontSize: 16, color: M.stone600 }}>
+          Share more. Spend less.
+        </Text>
       </View>
-    </ScrollView>
+
+      <DisclaimerCard />
+
+      <View style={{ flexDirection: "row", gap: 16 }}>
+        <Btn
+          onPress={() => {
+            resetCreateGroupDraft();
+            setCreateGroupOpen(true);
+          }}
+          style={{ flex: 1, height: 60, gap: 8 }}
+        >
+          <Plus color={M.white} size={20} />
+          <Text style={{ color: M.white, fontWeight: "900", fontSize: 14 }}>
+            Create Group
+          </Text>
+        </Btn>
+        <Btn style={{ flex: 1, height: 60, gap: 8 }}>
+          <Search color={M.white} size={20} />
+          <Text style={{ color: M.white, fontWeight: "900", fontSize: 14 }}>
+            Find Rides
+          </Text>
+        </Btn>
+      </View>
+
+      <SectionHeader
+        icon={<Users color={M.amber500} size={22} />}
+        title="Your Groups"
+      />
+      <View style={{ gap: 12 }}>
+        {groups.map((group) => {
+          const members = group.memberIds.map((id) => findUser(users, id));
+          return (
+            <GroupCard
+              key={group.id}
+              group={group}
+              members={members}
+              onOpen={() => setSelectedGroupId(group.id)}
+              onJoinGroup={joinGroup}
+            />
+          );
+        })}
+      </View>
+
+      <SectionHeader
+        icon={<Car color={M.amber500} size={22} />}
+        title="Ungrouped Rides"
+      />
+      <View style={{ gap: 12 }}>
+        {ungroupedRides.map((ride) => (
+          <RideCard
+            key={ride.id}
+            ride={ride}
+            driver={findUser(users, ride.driverId)}
+            onOpenJoin={openJoinRequest}
+          />
+        ))}
+      </View>
+    </MockScreen>
   );
 }

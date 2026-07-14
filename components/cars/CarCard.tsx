@@ -1,62 +1,109 @@
-import { Car as CarIcon, Edit, Fuel, Trash2 } from "lucide-react-native";
+import { Edit2, Fuel, Trash2 } from "lucide-react-native";
 import React from "react";
-import { Text, TouchableOpacity, View } from "react-native";
-import { Car } from "../../store/carSlice"; // Import Car from carSlice
+import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Car } from "../../store/carSlice";
+import { useTheme } from "../ui/theme";
 
-// Define the props interface
-interface CarCardProps {
+interface Props {
   car: Car;
-  onEdit: (car: Car) => void; // Function that takes a car object and returns void
-  onDelete: (carId: string) => void; // Function that takes a car ID and returns void
+  onEdit: (car: Car) => void;
+  onDelete: (id: string) => void;
 }
 
-export default function CarCard({ car, onEdit, onDelete }: CarCardProps) {
+export default function CarCard({ car, onEdit, onDelete }: Props) {
+  const { C } = useTheme();
+  const confirmDelete = () => {
+    Alert.alert("Remove car", `Remove ${car.make} ${car.model}?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => onDelete(car.id) },
+    ]);
+  };
+
+  const initials = `${car.make[0] || ""}${car.model[0] || ""}`.toUpperCase();
+
   return (
-    <View className="bg-gray-900 rounded-xl mb-4 shadow-sm">
-      <View className="p-4">
-        <View className="flex-row items-start justify-between mb-4">
-          <View className="flex-row items-center gap-3 flex-1">
-            <View className="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center">
-              <CarIcon color="#9CA3AF" size={32} />
-            </View>
-            <View className="flex-1">
-              <Text 
-              className="font-semibold text-xl text-white"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              >
-                {car.make} {car.model}
-              </Text>
-              <Text className="text-gray-400 text-lg mt-1">{car.year}</Text>
-            </View>
-          </View>
-          <View className="flex-row gap-4">
-            <TouchableOpacity
-              onPress={() => onEdit(car)}
-            >
-              <Edit color="#9CA3AF" size={20} style={{marginTop: 3}}/>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => onDelete(car.id)}
-            >
-              <Trash2 color="#9CA3AF" size={20} style={{marginTop: 2}} />
-            </TouchableOpacity>
-          </View>
+    <View
+      style={{
+        backgroundColor: C.surface,
+        borderRadius: 16,
+        borderWidth: 0.5,
+        borderColor: C.border,
+        padding: 16,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        {/* Avatar */}
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            backgroundColor: C.greenTint,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 14,
+          }}
+        >
+          <Text style={{ color: C.green, fontSize: 16, fontWeight: "700" }}>
+            {initials}
+          </Text>
         </View>
 
-        <View className="space-y-2">
-          <View className="flex-row justify-between items-center">
-            <View className="flex-row items-center">
-              <Fuel color="#9CA3AF" size={18} style={{ marginRight: 6 }} />
-              <Text className="text-xl text-gray-400">Consumption</Text>
-            </View>
-            <Text className="text-xl font-medium text-green-400">
-              {car.consumption_l_100km
-                ? `${car.consumption_l_100km} L/100km`
-                : `${car.fuel_efficiency || 25} MPG`}
-            </Text>
-          </View>
+        {/* Info */}
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{ color: C.textPrimary, fontSize: 16, fontWeight: "600" }}
+            numberOfLines={1}
+          >
+            {car.make} {car.model}
+          </Text>
+          <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 2 }}>
+            {car.year}
+          </Text>
         </View>
+
+        {/* Actions */}
+        <View style={{ flexDirection: "row", gap: 16 }}>
+          <TouchableOpacity
+            onPress={() => onEdit(car)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Edit2 color={C.textMuted} size={17} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={confirmDelete}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Trash2 color={C.textMuted} size={17} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Fuel stat */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          marginTop: 14,
+          paddingTop: 14,
+          borderTopWidth: 0.5,
+          borderTopColor: C.border,
+        }}
+      >
+        <Fuel color={C.textMuted} size={14} style={{ marginRight: 6 }} />
+        <Text style={{ color: C.textMuted, fontSize: 13 }}>Consumption</Text>
+        <Text
+          style={{
+            color: C.green,
+            fontSize: 13,
+            fontWeight: "600",
+            marginLeft: "auto" as any,
+          }}
+        >
+          {car.consumption_l_100km
+            ? `${car.consumption_l_100km} L/100km`
+            : `${car.fuel_efficiency || 25} MPG`}
+        </Text>
       </View>
     </View>
   );

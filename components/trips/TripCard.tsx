@@ -1,82 +1,187 @@
-import { Calendar, Car as CarIcon, MapPin, ShieldCheck, Trash2, Users } from 'lucide-react-native';
-import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { Car } from '../../store/carSlice';
-import { Trip } from '../../store/tripSlice';
+import {
+  Calendar,
+  Car as CarIcon,
+  Trash2,
+  Users
+} from "lucide-react-native";
+import React from "react";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Car } from "../../store/carSlice";
+import { Trip } from "../../store/tripSlice";
+import { useTheme } from "../ui/theme";
 
 interface TripCardProps {
   trip: Trip;
   cars: Car[];
   onClick: () => void;
-  onDelete: (tripId: string) => void; 
+  onDelete: (id: string) => void;
 }
 
-export default function TripCard({ trip, cars, onClick, onDelete }: TripCardProps) {
-  console.log("TripCard props:", { trip, cars }); 
+export default function TripCard({
+  trip,
+  cars,
+  onClick,
+  onDelete,
+}: TripCardProps) {
+  const { C } = useTheme();
   const car = cars.find((c) => c.id === trip.car_id);
+  const carLabel = car ? `${car.make} ${car.model}` : trip.car_name;
+  const dateStr = trip.date
+    ? new Date(trip.date).toLocaleDateString("en-CA", {
+        month: "short",
+        day: "numeric",
+      })
+    : "N/A";
+
+  const confirmDelete = () => {
+    Alert.alert("Delete trip", "Are you sure you want to delete this trip?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => onDelete(trip.id),
+      },
+    ]);
+  };
 
   return (
     <TouchableOpacity
       onPress={onClick}
-      className="bg-gray-900 rounded-xl shadow p-4 mb-4"
+      activeOpacity={0.8}
+      style={{
+        backgroundColor: C.surface,
+        borderRadius: 16,
+        borderWidth: 0.5,
+        borderColor: C.border,
+        padding: 16,
+      }}
     >
-      {/* Header */}
-      <View className="flex-row justify-between mb-3">
-        <View className="pr-2">
-          <View className="flex-row items-center mb-1">
-            <MapPin color="#4ade80" size={20} />
-            <Text className="ml-1 font-medium text-white text-xl">
-              {trip.from_location_name || trip.from_location || 'Unknown'}
+      {/* Route */}
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 14,
+        }}
+      >
+        <View style={{ flex: 1, paddingRight: 12 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 6,
+            }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: C.green,
+                marginRight: 8,
+              }}
+            />
+            <Text
+              style={{
+                color: C.textPrimary,
+                fontSize: 14,
+                fontWeight: "500",
+                flex: 1,
+              }}
+              numberOfLines={1}
+            >
+              {trip.from_location_name || trip.from_location || "Unknown"}
             </Text>
           </View>
-          <View className="flex-row items-center">
-            <Text className="text-white text-xl mb-1">→</Text>
-            <Text className="ml-1 text-white text-xl mb-2">
-              {trip.to_location_name || trip.to_location || 'Unknown'}
+          <View
+            style={{
+              width: 0.5,
+              height: 10,
+              backgroundColor: C.borderMid,
+              marginLeft: 3.5,
+              marginBottom: 6,
+            }}
+          />
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 2,
+                backgroundColor: C.textMuted,
+                marginRight: 8,
+              }}
+            />
+            <Text
+              style={{ color: C.textSecondary, fontSize: 14, flex: 1 }}
+              numberOfLines={1}
+            >
+              {trip.to_location_name || trip.to_location || "Unknown"}
             </Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => onDelete(trip.id)}>
-          <Trash2 color="#9CA3AF" size={20} />
+        <TouchableOpacity
+          onPress={confirmDelete}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Trash2 color={C.textMuted} size={16} />
         </TouchableOpacity>
       </View>
 
-      {/* Details */}
-      <View className="flex-row justify-between mb-3">
-        <View className="flex-row items-center w-1/3 mb-2">
-          <Calendar color="#9CA3AF" size={17} />
-          <Text className="ml-1 text-sm text-gray-400">
-            {trip.date ? new Date(trip.date).toLocaleDateString() : 'N/A'}
-          </Text>
+      {/* Meta row */}
+      <View
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 12,
+          rowGap: 8,
+          paddingTop: 12,
+          borderTopWidth: 0.5,
+          borderTopColor: C.border,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <Calendar color={C.textMuted} size={13} />
+          <Text style={{ color: C.textMuted, fontSize: 12 }}>{dateStr}</Text>
         </View>
-        <View className="flex-row items-center w-1/3 mb-2">
-          <Users color="#9CA3AF" size={17} />
-          <Text className="ml-1 text-sm text-gray-400">
-            {trip.passengers ? `${trip.passengers} passenger${parseInt(trip.passengers) !== 1 ? 's' : ''}` : 'N/A'}
-          </Text>
-        </View>
+        {trip.passengers && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <Users color={C.textMuted} size={13} />
+            <Text style={{ color: C.textMuted, fontSize: 12 }}>
+              {trip.passengers}p
+            </Text>
+          </View>
+        )}
+        {carLabel && (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+              flexShrink: 1,
+              minWidth: 0,
+              maxWidth: "100%",
+            }}
+          >
+            <CarIcon color={C.textMuted} size={13} />
+            <Text
+              style={{ color: C.textMuted, fontSize: 12, flexShrink: 1 }}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {carLabel}
+            </Text>
+          </View>
+        )}
         {trip.savings !== undefined && trip.savings > 0 && (
-          <View className="flex-row items-center w-1/3 mb-2">
-            <ShieldCheck color="#4ade80" size={17} />
-            <Text className="ml-1 text-lg text-green-400">
+          <View style={{ marginLeft: "auto" as any }}>
+            <Text style={{ color: C.green, fontSize: 13, fontWeight: "700" }}>
               ${trip.savings.toFixed(2)} saved
             </Text>
           </View>
         )}
-      </View>
-
-      {/* Footer */}
-      <View className="flex-row justify-between items-center pt-2 border-t border-neutral-200">
-        <View className="flex-row items-center">
-          {car && (
-            <>
-              <CarIcon color="#9CA3AF" size={20} />
-              <Text className="ml-2 text-sm text-gray-400">
-                {car.make} {car.model}
-              </Text>
-            </>
-          )}
-        </View>
       </View>
     </TouchableOpacity>
   );

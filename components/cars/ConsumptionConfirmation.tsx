@@ -1,13 +1,14 @@
-import { Car as CarIcon, Fuel } from "lucide-react-native";
+import { Fuel } from "lucide-react-native";
 import React from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
-import { Car } from "../../store/carSlice"; // Import Car interface from carSlice
+import { Modal, Text, View } from "react-native";
+import { Car } from "../../store/carSlice";
+import { Btn, ModalShell } from "../ui/primitives";
+import { useTheme } from "../ui/theme";
 
-// Define the props interface
-interface ConsumptionConfirmationProps {
+interface Props {
   car: Car;
   consumption: number;
-  onConfirm: (updatedCar: Car) => void; // Updated to return the modified car
+  onConfirm: (car: Car) => void;
   onReturn: () => void;
 }
 
@@ -16,66 +17,103 @@ export default function ConsumptionConfirmation({
   consumption,
   onConfirm,
   onReturn,
-}: ConsumptionConfirmationProps) {
-  const handleConfirm = () => {
-    const updatedCar: Car = {
+}: Props) {
+  const { C, FONT } = useTheme();
+  const mpg = Math.round((235.2 / consumption) * 10) / 10;
+  const handleConfirm = () =>
+    onConfirm({
       ...car,
       consumption_l_100km: consumption,
-      fuel_efficiency: Math.round((235.2 / consumption) * 10) / 10,
-    };
-    onConfirm(updatedCar); // Pass the updated car back
-  };
+      fuel_efficiency: mpg,
+    });
 
   return (
-    <Modal transparent={false} visible={true} animationType="slide" onRequestClose={onReturn}>
-      <View className="flex-1 bg-black justify-center p-4">
-        <View className="bg-gray-900 rounded-lg w-full max-w-sm mx-auto">
-          <View className="p-4 text-center">
-            <Text className="text-3xl justify-center text-center font-bold text-white mb-2 mt-2">About your car</Text>
-            <Text className="text-2xl text-center text-gray-400 mt-2">
-              Based on the information you provided, your car consumes:
+    <Modal
+      transparent={false}
+      visible
+      animationType="slide"
+      onRequestClose={onReturn}
+    >
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: C.bg,
+          justifyContent: "center",
+          padding: 20,
+        }}
+      >
+        <ModalShell
+          title="Fuel consumption"
+          subtitle={`${car.year} ${car.make} ${car.model}`}
+          onClose={onReturn}
+        >
+          <Text
+            style={[
+              FONT.bodyMuted,
+              { textAlign: "center", lineHeight: 20, marginBottom: 20 },
+            ]}
+          >
+            Based on the vehicle data, we found an estimated consumption for
+            your car.
+          </Text>
+
+          {/* Stat block */}
+          <View
+            style={{
+              backgroundColor: "#0d1117",
+              borderRadius: 12,
+              padding: 24,
+              alignItems: "center",
+              marginBottom: 24,
+              borderWidth: 0.5,
+              borderColor: C.border,
+            }}
+          >
+            <View
+              style={{
+                width: 52,
+                height: 52,
+                backgroundColor: C.greenTint,
+                borderRadius: 26,
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+              }}
+            >
+              <Fuel color={C.green} size={24} />
+            </View>
+            <Text
+              style={{ color: C.textPrimary, fontSize: 32, fontWeight: "700" }}
+            >
+              {consumption}{" "}
+              <Text
+                style={{ fontSize: 18, fontWeight: "400", color: C.textMuted }}
+              >
+                L/100km
+              </Text>
+            </Text>
+            <Text style={{ color: C.textMuted, fontSize: 13, marginTop: 8 }}>
+              or
+            </Text>
+            <Text
+              style={{
+                color: C.green,
+                fontSize: 20,
+                fontWeight: "600",
+                marginTop: 4,
+              }}
+            >
+              {mpg} MPG
             </Text>
           </View>
 
-          <View className="p-4 text-center space-y-6">
-            {/* Car Info */}
-            <View className="flex-row items-center justify-center gap-2">
-              <CarIcon color="#9CA3AF" size={28} />
-              <Text className="text-xl text-white">{car.year} {car.make} {car.model}</Text>
-              {car.license_plate && (
-                <Text className="text-lg text-gray-300">({car.license_plate})</Text>
-              )}
-            </View>
-
-            {/* Consumption Display */}
-            <View className="bg-gray-700 rounded-lg p-6 mt-4 mb-8">
-              <View className="flex items-center justify-center gap-2 mb-2">
-                <Fuel color="#10B981" size={32} />
-              </View>
-              <Text className="text-3xl text-center font-bold text-white mb-2">{consumption} L/100KM</Text>
-              <Text className="text-xl text-center text-gray-400 mb-2">OR</Text>
-              <Text className="text-2xl text-center font-semibold text-green-400">
-                {Math.round((235.2 / consumption) * 10) / 10} MPG
-              </Text>
-            </View>
-
-            {/* Action Buttons */}
-            <View className="space-y-3">
-              <TouchableOpacity
-                onPress={handleConfirm}
-                className="w-full justify-center bg-green-400 rounded-lg py-3 items-center mb-3"
-              >
-                <Text className="text-white text-xl font-bold">OK</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={onReturn}
-                className="w-full justify-center border-2 border-gray-700 rounded-lg py-3 items-center"
-              >
-                <Text className="text-gray-400 text-xl font-bold">RETURN</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+          <Btn
+            label="Use this value"
+            onPress={handleConfirm}
+            style={{ marginBottom: 12 }}
+          />
+          <Btn label="Enter manually" variant="outline" onPress={onReturn} />
+        </ModalShell>
       </View>
     </Modal>
   );
