@@ -1,15 +1,17 @@
-import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { Lock, Mail } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useDispatch } from 'react-redux';
-import { auth } from '../FirebaseConfig';
-
-const logoIcon = require("../assets/images/Car_Auto.png");
+import { useRouter } from "expo-router";
+import { Lock, Mail } from "lucide-react-native";
+import React, { useState } from "react";
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { UserService } from "../store/all";
 
 export default function LoginScreen() {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
@@ -17,24 +19,33 @@ export default function LoginScreen() {
   const signin = async () => {
     try {
       setLoading(true);
-      const userCred = await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
-      if (userCred?.user) router.replace('/(tabs)/home');
+      await UserService.login(formData.email.trim(), formData.password);
+      router.replace("/(tabs)/home");
     } catch (error: any) {
       console.log(error);
-      alert('sign in error: ' + (error?.message ?? String(error)));
+      alert("sign in error: " + (error?.message ?? String(error)));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-black" contentContainerClassName="px-6 py-12 ">
+    <ScrollView
+      className="flex-1 bg-black"
+      contentContainerClassName="px-6 py-12 "
+    >
       {/* Header */}
       <View className="items-center mb-4">
         <View className="w-20 h-20 bg-black rounded-full items-center justify-center mb-6 mt-24">
-          <Image source={logoIcon} style={{ width: 86, height: 86 }} resizeMode="contain" />
+          <Image
+            source={logoIcon}
+            style={{ width: 86, height: 86 }}
+            resizeMode="contain"
+          />
         </View>
-        <Text className="text-7xl font-semibold text-green-400 mb-11">CoTrip</Text>
+        <Text className="text-7xl font-semibold text-green-400 mb-11">
+          CoTrip
+        </Text>
       </View>
 
       {/* Form Card */}
@@ -44,10 +55,16 @@ export default function LoginScreen() {
           <View className="space-y-2">
             <Text className="text-white text-xl font-medium mb-2">Email</Text>
             <View className="flex-row items-center bg-gray-800 rounded-lg mb-2 h-14">
-              <Mail color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
+              <Mail
+                color="#9ca3af"
+                size={20}
+                style={{ marginLeft: 8, marginRight: 8 }}
+              />
               <TextInput
                 value={formData.email}
-                onChangeText={(text) => setFormData((p) => ({ ...p, email: text }))}
+                onChangeText={(text) =>
+                  setFormData((p) => ({ ...p, email: text }))
+                }
                 placeholder="Enter email"
                 placeholderTextColor="#9ca3af"
                 keyboardType="email-address"
@@ -57,19 +74,34 @@ export default function LoginScreen() {
                 textContentType="emailAddress"
                 autoComplete="email"
                 importantForAutofill="yes"
-                style={{ flex: 1, color: '#fff', fontSize: 18, lineHeight: 22, height: '100%', paddingVertical: 0 }}
+                style={{
+                  flex: 1,
+                  color: "#fff",
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: "100%",
+                  paddingVertical: 0,
+                }}
               />
             </View>
           </View>
 
           {/* Password */}
           <View className="space-y-2">
-            <Text className="text-white text-xl font-medium mb-2">Password</Text>
+            <Text className="text-white text-xl font-medium mb-2">
+              Password
+            </Text>
             <View className="flex-row items-center bg-gray-800 rounded-lg mb-6 h-14">
-              <Lock color="#9ca3af" size={20} style={{ marginLeft: 8, marginRight: 8 }} />
+              <Lock
+                color="#9ca3af"
+                size={20}
+                style={{ marginLeft: 8, marginRight: 8 }}
+              />
               <TextInput
                 value={formData.password}
-                onChangeText={(text) => setFormData((p) => ({ ...p, password: text }))}
+                onChangeText={(text) =>
+                  setFormData((p) => ({ ...p, password: text }))
+                }
                 placeholder="Enter password"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
@@ -78,9 +110,15 @@ export default function LoginScreen() {
                 textContentType="password"
                 autoComplete="password"
                 importantForAutofill="yes"
-                style={{ flex: 1, color: '#fff', fontSize: 18, lineHeight: 22, height: '100%', paddingVertical: 0 }}
+                style={{
+                  flex: 1,
+                  color: "#fff",
+                  fontSize: 18,
+                  lineHeight: 22,
+                  height: "100%",
+                  paddingVertical: 0,
+                }}
               />
-
             </View>
           </View>
 
@@ -91,7 +129,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text className="text-white text-lg font-medium">
-              {loading ? 'Processing...' : 'SIGN IN'}
+              {loading ? "Processing..." : "SIGN IN"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -100,7 +138,7 @@ export default function LoginScreen() {
       {/* Create Account Link */}
       <View className="items-center mt-8">
         <Text className="text-gray-400 text-2xl mb-4">New to carpooling? </Text>
-        <TouchableOpacity onPress={() => router.push('/signup')}>
+        <TouchableOpacity onPress={() => router.push("/signup")}>
           <Text className="text-main text-xl font-medium">Create Account</Text>
         </TouchableOpacity>
       </View>

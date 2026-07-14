@@ -1,5 +1,3 @@
-import { Timestamp } from "firebase/firestore";
-
 // Converts Firestore Timestamp, Date, number (ms), or ISO string
 // → milliseconds (number)*/
 export const toMillis = (t: any): number | null => {
@@ -34,13 +32,6 @@ export const toDate = (t: any): Date | null => {
   }
 
   return null;
-};
-
-//Converts milliseconds or Date → Firestore Timestamp*/
-export const toTimestamp = (t: number | Date | null): Timestamp | null => {
-  if (!t) return null;
-  const ms = t instanceof Date ? t.getTime() : t;
-  return Timestamp.fromMillis(ms);
 };
 
 //Converts Firestore Timestamp or Date → ISO string (for logs/UI)*/

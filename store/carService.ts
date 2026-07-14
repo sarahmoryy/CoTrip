@@ -1,27 +1,22 @@
 import { VEHICLES } from "@/vehicleLists";
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
-import { auth, db } from "../FirebaseConfig";
+import { supabase } from "../SupabaseConfig";
 import type { Car } from "./carSlice";
 
 const CARS = "cars";
 
-function userScopedCollection() {
-  const uid = auth.currentUser?.uid;
-  if (!uid) throw new Error("Not signed in");
-  return collection(db, "users", uid, CARS);
-}
-
 export const CarService = {
   async list(order: string = "-createdAt"): Promise<Car[]> {
-    const col = userScopedCollection();
-    const q = query(col, orderBy("createdAt", order.startsWith("-") ? "desc" : "asc"));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as Car[];
+    const ascending = !order.startsWith("-");
+    const { data, error } = await supabase
+      .from(CARS)
+      .select("*")
+      .order("created_at", { ascending });
+    if (error) throw error;
+
+    return (data ?? []).map(({ user_id, ...rest }) => rest as Car);
   },
 
   async create(car: Car): Promise<Car> {
-    const col = userScopedCollection();
-
     const payload = {
       make: car.make,
       model: car.model,
@@ -29,23 +24,28 @@ export const CarService = {
       license_plate: car.license_plate ?? null,
       consumption_l_100km: car.consumption_l_100km ?? null,
       fuel_efficiency: car.fuel_efficiency ?? 25,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
     };
 
-    const ref = await addDoc(col, payload);
-    return { id: ref.id, ...payload } as Car;
+    const { data, error } = await supabase
+      .from(CARS)
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+
+    const { user_id, ...clean } = data;
+    return clean as Car;
   },
 
   async update(id: string, car: Partial<Car>): Promise<void> {
-    const col = userScopedCollection();
-    const ref = doc(col, id);
-    await updateDoc(ref, { ...car, updatedAt: serverTimestamp() } as any);
+    const { id: _ignore, ...rest } = car;
+    const { error } = await supabase.from(CARS).update(rest).eq("id", id);
+    if (error) throw error;
   },
 
   async delete(id: string): Promise<void> {
-    const col = userScopedCollection();
-    await deleteDoc(doc(col, id));
+    const { error } = await supabase.from(CARS).delete().eq("id", id);
+    if (error) throw error;
   },
 
   async fetchConsumption(make: string, model: string, year: number): Promise<number | null> {

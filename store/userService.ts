@@ -1,6 +1,4 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../FirebaseConfig';
+import { supabase } from '../SupabaseConfig';
 
 export interface UserState {
   full_name: string;
@@ -13,65 +11,69 @@ export class UserService {
 
   /** LOGIN */
   static async login(email: string, password: string): Promise<UserState> {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    return await UserService.getUserData(user.uid);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return await UserService.getUserData(data.user.id);
   }
 
   /** SIGNUP */
   static async signup(fullName: string, email: string, password: string, confirmPassword: string): Promise<UserState> {
     if (password !== confirmPassword) throw new Error('Passwords do not match');
 
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error('Signup did not return a user');
 
-    // Update displayName in Firebase Auth
-    await updateProfile(user, { displayName: fullName });
-
-    // Create user document in Firestore
-    const userData: UserState = {
+    // profiles row is created by the on_auth_user_created trigger
+    return {
       full_name: fullName,
-      email: email,
+      email,
       phone: '',
       address: '',
     };
-    await setDoc(doc(db, 'users', user.uid), userData);
-
-    return userData;
   }
 
   /** GET CURRENT USER DATA */
   static async me(): Promise<UserState> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('No user is currently logged in');
-    return await UserService.getUserData(user.uid);
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    if (!data.user) throw new Error('No user is currently logged in');
+    return await UserService.getUserData(data.user.id);
   }
 
   /** UPDATE USER DATA */
   static async updateMyUserData(userData: Partial<UserState>): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error('No user is currently logged in');
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    if (!data.user) throw new Error('No user is currently logged in');
 
-    const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, userData);
-
-    // Optionally update displayName in Firebase Auth if full_name changes
-    if (userData.full_name) {
-      await updateProfile(user, { displayName: userData.full_name });
-    }
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update(userData)
+      .eq('id', data.user.id);
+    if (updateError) throw updateError;
   }
 
   /** LOGOUT */
   static async logout(): Promise<void> {
-    await signOut(auth);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }
 
-  /** HELPER: Get user data from Firestore */
+  /** HELPER: Get user data from profiles table */
   private static async getUserData(uid: string): Promise<UserState> {
-    const userRef = doc(db, 'users', uid);
-    const docSnap = await getDoc(userRef);
-    if (!docSnap.exists()) throw new Error('User data not found in Firestore');
-    return docSnap.data() as UserState;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name, email, phone, address')
+      .eq('id', uid)
+      .single();
+    if (error) throw error;
+    if (!data) throw new Error('User data not found');
+    return data as UserState;
   }
 }
 

@@ -1,6 +1,6 @@
 // src/services/mapsApi.ts
-// Client-side helpers that call your Firebase Functions proxy.
-// Your Google Maps API key stays hidden in Firebase (Secret Manager).
+// Client-side helpers that call your Supabase Edge Functions proxy.
+// Your Google Maps API key stays hidden in Supabase (function secrets).
 
 export type LatLng = { lat: number; lng: number };
 
@@ -10,9 +10,7 @@ export type PlacePrediction = {
 };
 
 // Deployed Functions base URL (set via .env for convenience)
-const FUNCTIONS_BASE =
-  process.env.EXPO_PUBLIC_FUNCTIONS_BASE_URL ||
-  "https://us-central1-cotrip-97369.cloudfunctions.net";
+const FUNCTIONS_BASE = process.env.EXPO_PUBLIC_FUNCTIONS_BASE_URL!;
 
 async function getJSON<T>(path: string, params?: Record<string, string>) {
   const url =

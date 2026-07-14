@@ -1,0 +1,13 @@
+project_id = "fbuyuthyhxkfxuivqpun"
+
+[functions.autocomplete]
+verify_jwt = false
+
+[functions.placeDetails]
+verify_jwt = false
+
+[functions.geocode]
+verify_jwt = false
+
+[functions.directions]
+verify_jwt = false
