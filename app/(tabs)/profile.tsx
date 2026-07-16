@@ -11,6 +11,13 @@ import { UserService } from "../../store/all";
 export default function ProfileScreen() {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [realUser, setRealUser] = useState<{ full_name: string; email: string } | null>(null);
+
+  React.useEffect(() => {
+    UserService.me()
+      .then((u) => setRealUser({ full_name: u.full_name, email: u.email }))
+      .catch(() => setRealUser(null));
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -202,6 +209,8 @@ export default function ProfileScreen() {
   }
 
   const totalSavings = pastTrips.reduce((s, t) => s + t.saved, 0);
+  const displayName = realUser?.full_name || currentUser.name;
+  const displayEmail = realUser?.email || currentUser.email;
 
   return (
     <MockScreen>
@@ -223,11 +232,11 @@ export default function ProfileScreen() {
               shadowOffset: { width: 0, height: 4 },
             }}
           >
-            <Text style={{ color: M.white, fontWeight: "900", fontSize: 28 }}>{currentUser.name[0]}</Text>
+            <Text style={{ color: M.white, fontWeight: "900", fontSize: 28 }}>{displayName[0]}</Text>
           </View>
           <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 20, fontWeight: "700", color: M.stone950 }}>{currentUser.name}</Text>
-            <Text style={{ color: M.stone500, fontSize: 13 }}>{currentUser.email}</Text>
+            <Text style={{ fontSize: 20, fontWeight: "700", color: M.stone950 }}>{displayName}</Text>
+            <Text style={{ color: M.stone500, fontSize: 13 }}>{displayEmail}</Text>
           </View>
           <TouchableOpacity onPress={() => setProfileView("connections")}>
             <Text style={{ fontSize: 13, fontWeight: "900", color: M.amber500 }}>
