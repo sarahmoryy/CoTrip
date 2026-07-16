@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
 import { Lock, Mail } from "lucide-react-native";
 import React, { useState } from "react";
 import {
@@ -9,9 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../FirebaseConfig";
 import { Btn } from "../components/ui/primitives";
 import { useTheme } from "../components/ui/theme";
+import { UserService } from "../store/all";
 
 export default function LoginScreen() {
   const { C } = useTheme();
@@ -24,12 +23,8 @@ export default function LoginScreen() {
   const signin = async () => {
     try {
       setLoading(true);
-      const userCred = await signInWithEmailAndPassword(
-        auth,
-        formData.email.trim(),
-        formData.password,
-      );
-      if (userCred?.user) router.replace("/(tabs)/home");
+      await UserService.login(formData.email.trim(), formData.password);
+      router.replace("/(tabs)/home");
     } catch (error: any) {
       alert("Sign-in failed: " + (error?.message ?? String(error)));
     } finally {

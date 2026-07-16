@@ -1,12 +1,29 @@
-import { ChevronLeft, ChevronRight, Moon, Sun, UserPlus, Users } from "lucide-react-native";
-import React from "react";
+import { useRouter } from "expo-router";
+import { ChevronLeft, ChevronRight, LogOut, Moon, Sun, UserPlus, Users } from "lucide-react-native";
+import React, { useState } from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useApp } from "../../components/mockup/AppContext";
 import { findUser, pastTrips } from "../../components/mockup/data";
 import { M, RADIUS, useMockTheme } from "../../components/mockup/theme";
 import { Btn, MockScreen, RatingBadge, ShellCard, textInputStyle } from "../../components/mockup/ui";
+import { UserService } from "../../store/all";
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await UserService.logout();
+      router.replace("/login");
+    } catch (error: any) {
+      alert("Logout failed: " + (error?.message ?? String(error)));
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const {
     currentUser,
     users,
@@ -419,6 +436,26 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </ShellCard>
+
+      <ShellCard>
+        <TouchableOpacity
+          onPress={handleLogout}
+          disabled={loggingOut}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: 16,
+            opacity: loggingOut ? 0.6 : 1,
+          }}
+        >
+          <LogOut color={M.amber600} size={18} />
+          <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 14 }}>
+            {loggingOut ? "Logging out..." : "Log out"}
+          </Text>
+        </TouchableOpacity>
       </ShellCard>
     </MockScreen>
   );
