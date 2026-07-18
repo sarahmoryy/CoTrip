@@ -7,7 +7,7 @@ import {
   Users,
 } from "lucide-react-native";
 import React from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useApp } from "../../components/mockup/AppContext";
 import { findUser } from "../../components/mockup/data";
 import { M, RADIUS } from "../../components/mockup/theme";
@@ -38,6 +38,7 @@ export default function HomeScreen() {
     setNewMemberEmail,
     addMemberToSelectedGroup,
     removeMemberFromSelectedGroup,
+    deleteGroup,
   } = useApp();
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
@@ -82,7 +83,36 @@ export default function HomeScreen() {
               >
                 Members
               </Text>
-              <MoreVertical color={M.amber500} size={20} />
+              <TouchableOpacity
+                onPress={() =>
+                  Alert.alert(
+                    "Group Options",
+                    selectedGroup.name,
+                    [
+                      {
+                        text: "Delete Group",
+                        style: "destructive",
+                        onPress: () =>
+                          Alert.alert(
+                            "Delete Group",
+                            `Delete "${selectedGroup.name}"? This cannot be undone.`,
+                            [
+                              { text: "Cancel", style: "cancel" },
+                              {
+                                text: "Delete",
+                                style: "destructive",
+                                onPress: () => deleteGroup(selectedGroup.id),
+                              },
+                            ]
+                          ),
+                      },
+                      { text: "Cancel", style: "cancel" },
+                    ]
+                  )
+                }
+              >
+                <MoreVertical color={M.amber500} size={20} />
+              </TouchableOpacity>
             </View>
 
             <View style={{ gap: 8 }}>

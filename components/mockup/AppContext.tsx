@@ -3,24 +3,17 @@ import React, {
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 import {
-  carsOwned,
   computeDriverTripCosts,
-  currentUser,
   DRIVER_CAR_CATALOG,
   DRIVER_YEARS,
   driverEstimateDistanceKm,
   driverId,
   findUser,
-  initialConfirmedRides,
-  initialGroups,
-  initialRideRequests,
-  initialRides,
-  initialUpcomingTrips,
-  initialUsers,
   MCarOwned,
   MConfirmation,
   MDriverCar,
@@ -30,12 +23,18 @@ import {
   MNotification,
   MPinnedTemplate,
   MRide,
+  MRequestStatus,
   MRideRequest,
   MUpcomingTrip,
   MUser,
-  pinnedRideTemplates,
   RIDER_GAS_VARIATION_PCT,
 } from "./data";
+import { supabase } from "../../SupabaseConfig";
+import { UserService } from "../../store/userService";
+import { GroupService } from "../../store/groupService";
+import { SharedRideService } from "../../store/sharedRideService";
+import { ConnectionService } from "../../store/connectionService";
+import { CarService } from "../../store/carService";
 
 type DriverTripForm = {
   origin: string;
@@ -120,6 +119,7 @@ export type AppContextValue = {
   setNewMemberEmail: (v: string) => void;
   addMemberToSelectedGroup: () => void;
   removeMemberFromSelectedGroup: (id: string) => void;
+  deleteGroup: (id: string) => void;
   joinGroup: (id: string) => void;
 
   // join request
@@ -154,8 +154,8 @@ export type AppContextValue = {
 
   // post ride flow
   selectedCarForRide: MCarOwned | null;
-  newRideForm: { origin: string; destination: string; time: string };
-  setNewRideForm: (f: { origin: string; destination: string; time: string }) => void;
+  newRideForm: { origin: string; destination: string; time: string; date: string };
+  setNewRideForm: (f: { origin: string; destination: string; time: string; date: string }) => void;
   ridePostGroupSelected: Record<string, boolean>;
   toggleRidePostGroup: (id: string) => void;
   ridePostPublic: boolean;
@@ -258,13 +258,29 @@ export function useApp(): AppContextValue {
   return ctx;
 }
 
+const EMPTY_USER: MUser = {
+  id: "",
+  name: "",
+  email: "",
+  avatar: "",
+  driverRating: 0,
+  driverReviewCount: 0,
+  driverRidesCompleted: 0,
+  riderRating: 0,
+  riderReviewCount: 0,
+  riderRidesCompleted: 0,
+  driverReviews: [],
+  riderReviews: [],
+};
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<MUser[]>(initialUsers);
-  const [groups, setGroups] = useState<MGroup[]>(initialGroups);
-  const [rides, setRides] = useState<MRide[]>(initialRides);
-  const [rideRequests, setRideRequests] = useState<MRideRequest[]>(initialRideRequests);
-  const [confirmedRides, setConfirmedRides] = useState<MConfirmation[]>(initialConfirmedRides);
-  const [upcomingTrips, setUpcomingTrips] = useState<MUpcomingTrip[]>(initialUpcomingTrips);
+  const [currentUser, setCurrentUser] = useState<MUser>(EMPTY_USER);
+  const [users, setUsers] = useState<MUser[]>([]);
+  const [groups, setGroups] = useState<MGroup[]>([]);
+  const [rides, setRides] = useState<MRide[]>([]);
+  const [rideRequests, setRideRequests] = useState<MRideRequest[]>([]);
+  const [confirmedRides, setConfirmedRides] = useState<MConfirmation[]>([]);
+  const [upcomingTrips, setUpcomingTrips] = useState<MUpcomingTrip[]>([]);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [newMemberEmail, setNewMemberEmail] = useState("");
@@ -291,7 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [newFriendEmail, setNewFriendEmail] = useState("");
 
   const [selectedCarForRide, setSelectedCarForRide] = useState<MCarOwned | null>(null);
-  const [newRideForm, setNewRideForm] = useState({ origin: "", destination: "", time: "" });
+  const [newRideForm, setNewRideForm] = useState({ origin: "", destination: "", time: "", date: "" });
   const [ridePostGroupSelected, setRidePostGroupSelected] = useState<Record<string, boolean>>({});
   const [ridePostPublic, setRidePostPublic] = useState(true);
   const [carPickerOpen, setCarPickerOpen] = useState(false);
@@ -299,7 +315,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
 
-  const [pinnedPostRides, setPinnedPostRides] = useState<MPinnedTemplate[]>(pinnedRideTemplates);
+  const [pinnedPostRides, setPinnedPostRides] = useState<MPinnedTemplate[]>([]);
 
   // driver
   const [driverCars, setDriverCars] = useState<MDriverCar[]>([]);
@@ -349,6 +365,131 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [driverRateValue, setDriverRateValue] = useState(5);
   const [driverRateComment, setDriverRateComment] = useState("");
 
+  // ---- load data from Supabase on mount ----
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const authUser = authData?.user;
+        if (!authUser) return;
+
+        const profile = await UserService.me().catch(() => null);
+        const me: MUser = {
+          id: authUser.id,
+          name: profile?.full_name || authUser.email?.split("@")[0] || "You",
+          email: profile?.email || authUser.email || "",
+          avatar: `https://i.pravatar.cc/80?u=${authUser.id}`,
+          driverRating: 0,
+          driverReviewCount: 0,
+          driverRidesCompleted: 0,
+          riderRating: 0,
+          riderReviewCount: 0,
+          riderRidesCompleted: 0,
+          driverReviews: [],
+          riderReviews: [],
+        };
+        setCurrentUser(me);
+
+        // Load connections (friends) as users
+        const conns = await ConnectionService.list().catch(() => []);
+        const connUsers: MUser[] = conns.map((c) => ({
+          id: c.friend_id,
+          name: c.friend_name || c.friend_email.split("@")[0],
+          email: c.friend_email,
+          avatar: `https://i.pravatar.cc/80?u=${c.friend_id}`,
+          driverRating: 0,
+          driverReviewCount: 0,
+          driverRidesCompleted: 0,
+          riderRating: 0,
+          riderReviewCount: 0,
+          riderRidesCompleted: 0,
+          driverReviews: [],
+          riderReviews: [],
+        }));
+        setUsers([me, ...connUsers]);
+
+        // Load groups
+        const dbGroups = await GroupService.list().catch(() => []);
+        const mGroups: MGroup[] = dbGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          route: "",
+          schedule: "",
+          description: g.description,
+          memberIds: Array.from(
+            new Set([g.owner_id, ...g.members.map((m) => m.user_id)])
+          ),
+          saved: 0,
+        }));
+        setGroups(mGroups);
+
+        // Load shared rides
+        const dbRides = await SharedRideService.list().catch(() => []);
+        const mRides: MRide[] = dbRides.map((r) => ({
+          id: r.id,
+          groupId: r.group_id,
+          driverId: r.driver_id,
+          vehicle: r.vehicle,
+          origin: r.origin,
+          destination: r.destination,
+          departureTime: r.departure_time,
+          date: r.date,
+          distance: "",
+          duration: "",
+          approximateCost: r.approximate_cost,
+          seatsTotal: r.seats_total,
+          passengerIds: [],
+          seatsLeft: r.seats_left,
+        }));
+        setRides(mRides);
+
+        // Load ride requests (as rider + as driver for my rides)
+        const { data: myRiderReqs } = await supabase
+          .from("ride_requests")
+          .select("*")
+          .eq("rider_id", authUser.id);
+        const myRideIds = dbRides
+          .filter((r) => r.driver_id === authUser.id)
+          .map((r) => r.id);
+        const driverReqs =
+          myRideIds.length > 0
+            ? await SharedRideService.listRequests(myRideIds).catch(() => [])
+            : [];
+        const allReqs = [
+          ...(myRiderReqs || []),
+          ...driverReqs,
+        ].filter(
+          (v, i, a) => a.findIndex((x: any) => x.id === v.id) === i
+        );
+        const mRequests: MRideRequest[] = allReqs.map((r: any) => ({
+          id: r.id,
+          rideId: r.ride_id,
+          riderId: r.rider_id,
+          pickupPoint: r.pickup_point,
+          dropoffPoint: r.dropoff_point,
+          status: r.status as MRequestStatus,
+          createdAt: new Date(r.created_at).toLocaleDateString(),
+          expectedTotalCost: r.expected_total_cost,
+        }));
+        setRideRequests(mRequests);
+
+        // Load cars for driver trips
+        const dbCars = await CarService.list().catch(() => []);
+        const mDriverCars: MDriverCar[] = dbCars.map((c) => ({
+          id: c.id,
+          make: c.make,
+          model: c.model,
+          year: String(c.year || ""),
+          consumptionLPer100: c.consumption_l_100km || 7.5,
+        }));
+        setDriverCars(mDriverCars);
+      } catch (err) {
+        console.error("Error loading app data from Supabase:", err);
+      }
+    }
+    loadData();
+  }, []);
+
   // derived
   const ridesByGroup = useMemo(() => {
     const result: Record<string, MRide[]> = {};
@@ -359,7 +500,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [groups, rides]);
 
   const ungroupedRides = useMemo(() => rides.filter((r) => !r.groupId), [rides]);
-  const connections = useMemo(() => users.filter((u) => u.id !== currentUser.id), [users]);
+  const connections = useMemo(
+    () => users.filter((u) => u.id !== currentUser.id),
+    [users, currentUser.id]
+  );
 
   const requestBuckets = useMemo(
     () => ({
@@ -377,7 +521,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const driverContacts = useMemo(
     () => users.filter((u) => u.id !== currentUser.id),
-    [users]
+    [users, currentUser.id]
   );
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
@@ -454,15 +598,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGroupDraftEmail("");
   }, [groupDraftEmail, createUserFromEmail]);
 
-  const confirmCreateGroup = useCallback(() => {
+  const confirmCreateGroup = useCallback(async () => {
     const name = groupDraftName.trim();
     if (!name) return;
     const selectedIds = Object.entries(groupDraftSelected)
       .filter(([, v]) => v)
       .map(([k]) => k);
     const memberIds = Array.from(new Set([currentUser.id, ...selectedIds]));
+
+    let groupId = `grp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    try {
+      const dbGroup = await GroupService.create(name, groupDraftDesc.trim() || "New group");
+      groupId = dbGroup.id;
+      for (const memberId of selectedIds) {
+        const u = users.find((x) => x.id === memberId);
+        if (u?.email) {
+          await GroupService.addMember(dbGroup.id, u.email).catch(console.error);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to persist group to Supabase:", err);
+    }
+
     const newGroup: MGroup = {
-      id: `grp-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+      id: groupId,
       name,
       route: "",
       schedule: "",
@@ -474,12 +633,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCreateGroupOpen(false);
     resetCreateGroupDraft();
     pushNotification("Group created", name);
-  }, [groupDraftName, groupDraftSelected, groupDraftDesc, resetCreateGroupDraft, pushNotification]);
+  }, [groupDraftName, groupDraftSelected, groupDraftDesc, currentUser.id, users, resetCreateGroupDraft, pushNotification]);
 
   // ---- friends / profile ----
-  const addFriendFromProfile = useCallback(() => {
-    if (!newFriendEmail.trim()) return;
-    createUserFromEmail(newFriendEmail);
+  const addFriendFromProfile = useCallback(async () => {
+    const email = newFriendEmail.trim();
+    if (!email) return;
+    try {
+      const conn = await ConnectionService.add(email);
+      if (conn) {
+        const newUser: MUser = {
+          id: conn.friend_id,
+          name: conn.friend_name || conn.friend_email.split("@")[0],
+          email: conn.friend_email,
+          avatar: `https://i.pravatar.cc/80?u=${conn.friend_id}`,
+          driverRating: 0,
+          driverReviewCount: 0,
+          driverRidesCompleted: 0,
+          riderRating: 0,
+          riderReviewCount: 0,
+          riderRidesCompleted: 0,
+          driverReviews: [],
+          riderReviews: [],
+        };
+        setUsers((prev) => {
+          if (prev.some((u) => u.id === newUser.id)) return prev;
+          return [...prev, newUser];
+        });
+      } else {
+        createUserFromEmail(email);
+      }
+    } catch {
+      createUserFromEmail(email);
+    }
     setNewFriendEmail("");
   }, [newFriendEmail, createUserFromEmail]);
 
@@ -491,23 +677,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { ...g, memberIds: [...g.memberIds, currentUser.id] };
       })
     );
-  }, []);
+  }, [currentUser.id]);
 
-  const addMemberToSelectedGroup = useCallback(() => {
+  const addMemberToSelectedGroup = useCallback(async () => {
     if (!selectedGroupId || !newMemberEmail.trim()) return;
-    const user = createUserFromEmail(newMemberEmail);
-    setGroups((p) =>
-      p.map((g) => {
-        if (g.id !== selectedGroupId) return g;
-        if (g.memberIds.includes(user.id)) return g;
-        return { ...g, memberIds: [...g.memberIds, user.id] };
-      })
-    );
+    const email = newMemberEmail.trim();
+
+    try {
+      const member = await GroupService.addMember(selectedGroupId, email);
+      if (member) {
+        setUsers((prev) => {
+          if (prev.some((u) => u.id === member.user_id)) return prev;
+          return [
+            ...prev,
+            {
+              id: member.user_id,
+              name: member.display_name || email.split("@")[0],
+              email: member.email,
+              avatar: `https://i.pravatar.cc/80?u=${member.user_id}`,
+              driverRating: 0,
+              driverReviewCount: 0,
+              driverRidesCompleted: 0,
+              riderRating: 0,
+              riderReviewCount: 0,
+              riderRidesCompleted: 0,
+              driverReviews: [],
+              riderReviews: [],
+            },
+          ];
+        });
+        setGroups((p) =>
+          p.map((g) =>
+            g.id === selectedGroupId && !g.memberIds.includes(member.user_id)
+              ? { ...g, memberIds: [...g.memberIds, member.user_id] }
+              : g
+          )
+        );
+      } else {
+        const user = createUserFromEmail(email);
+        setGroups((p) =>
+          p.map((g) => {
+            if (g.id !== selectedGroupId) return g;
+            if (g.memberIds.includes(user.id)) return g;
+            return { ...g, memberIds: [...g.memberIds, user.id] };
+          })
+        );
+      }
+    } catch {
+      const user = createUserFromEmail(email);
+      setGroups((p) =>
+        p.map((g) => {
+          if (g.id !== selectedGroupId) return g;
+          if (g.memberIds.includes(user.id)) return g;
+          return { ...g, memberIds: [...g.memberIds, user.id] };
+        })
+      );
+    }
     setNewMemberEmail("");
   }, [selectedGroupId, newMemberEmail, createUserFromEmail]);
 
   const removeMemberFromSelectedGroup = useCallback(
-    (memberId: string) => {
+    async (memberId: string) => {
       if (!selectedGroupId) return;
       setGroups((p) =>
         p.map((g) =>
@@ -516,9 +746,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : g
         )
       );
+      await GroupService.removeMember(selectedGroupId, memberId).catch(console.error);
     },
     [selectedGroupId]
   );
+
+  const deleteGroup = useCallback(async (groupId: string) => {
+    setGroups((p) => p.filter((g) => g.id !== groupId));
+    setSelectedGroupId(null);
+    await GroupService.delete(groupId).catch(console.error);
+  }, []);
 
   // ---- join request ----
   const openJoinRequest = useCallback((ride: MRide) => {
@@ -533,11 +770,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDropoffPoint("");
   }, []);
 
-  const submitJoinRequest = useCallback(() => {
+  const submitJoinRequest = useCallback(async () => {
     if (!selectedRideToJoin || !pickupPoint.trim() || !dropoffPoint.trim()) return;
     const r = selectedRideToJoin;
     const half = Number(r.approximateCost || 0) / 2;
-    const newReq: MRideRequest = {
+    const localReq: MRideRequest = {
       id: `req${Date.now()}`,
       rideId: r.id,
       riderId: currentUser.id,
@@ -551,14 +788,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       status: "pending",
       createdAt: "Just now",
     };
-    setRideRequests((p) => [newReq, ...p]);
+
+    try {
+      const dbReq = await SharedRideService.createRequest({
+        ride_id: r.id,
+        rider_id: currentUser.id,
+        pickup_point: pickupPoint,
+        dropoff_point: dropoffPoint,
+        expected_total_cost: Number(r.approximateCost || 0),
+        status: "pending",
+      });
+      localReq.id = dbReq.id;
+    } catch (err) {
+      console.error("Failed to persist ride request:", err);
+    }
+
+    setRideRequests((p) => [localReq, ...p]);
     closeJoinRequest();
     pushNotification("Request sent", `${r.origin} → ${r.destination} · waiting for driver approval`);
-  }, [selectedRideToJoin, pickupPoint, dropoffPoint, closeJoinRequest, pushNotification]);
+  }, [selectedRideToJoin, pickupPoint, dropoffPoint, currentUser.id, closeJoinRequest, pushNotification]);
 
   // ---- driver approve/decline ----
   const approveRideRequest = useCallback(
-    (requestId: string) => {
+    async (requestId: string) => {
       const req = rideRequests.find((r) => r.id === requestId);
       if (!req) return;
       const ride = rides.find((r) => r.id === req.rideId);
@@ -612,16 +864,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...p,
         ];
       });
+
+      await SharedRideService.updateRequestStatus(requestId, "approved").catch(console.error);
+      await SharedRideService.updateSeatCount(ride.id, nextSeatsLeft).catch(console.error);
+
       pushNotification("Request approved", `${ride.origin} → ${ride.destination} · pickup confirmed`);
     },
     [rideRequests, rides, pushNotification]
   );
 
   const declineRideRequest = useCallback(
-    (requestId: string) => {
+    async (requestId: string) => {
       const req = rideRequests.find((r) => r.id === requestId);
       const ride = req ? rides.find((x) => x.id === req.rideId) : null;
       setRideRequests((p) => p.map((r) => (r.id === requestId ? { ...r, status: "declined" } : r)));
+      await SharedRideService.updateRequestStatus(requestId, "declined").catch(console.error);
       if (ride) pushNotification("Request declined", `${ride.origin} → ${ride.destination}`);
     },
     [rideRequests, rides, pushNotification]
@@ -696,7 +953,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setReviewRating(5);
       setReviewComment("");
     },
-    [confirmedRides, rides, reviewRating, reviewComment]
+    [confirmedRides, rides, reviewRating, reviewComment, currentUser.name]
   );
 
   // ---- upcoming trip cancel ----
@@ -738,7 +995,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
     setCancelTarget(null);
-  }, [cancelTarget, confirmedRides, rides, pushNotification]);
+  }, [cancelTarget, confirmedRides, rides, currentUser.id, pushNotification]);
 
   const openRequestDetailsFromRequest = useCallback(
     (req: MRideRequest) => {
@@ -813,11 +1070,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const postRideOffer = useCallback(() => {
+  const postRideOffer = useCallback(async () => {
     if (!selectedCarForRide) return;
     const origin = newRideForm.origin.trim();
     const destination = newRideForm.destination.trim();
     const time = newRideForm.time.trim() || "TBD";
+    const date = newRideForm.date.trim() || "TBD";
     if (!origin || !destination) {
       pushNotification("Missing info", "Please enter an origin and destination.");
       return;
@@ -843,22 +1101,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const passengerCapacity = Math.max(seatsTotal - 1, 0);
     const approxCost =
       Math.round(distanceKm * Number(selectedCarForRide.costPerKm || 0.18) * 100) / 100;
-    const newRides: MRide[] = targets.map((groupId, idx) => ({
-      id: driverId(`ride${idx}`),
-      groupId,
-      driverId: currentUser.id,
-      vehicle: selectedCarForRide.name,
-      origin,
-      destination,
-      departureTime: time,
-      date: "Tomorrow",
-      distance,
-      duration,
-      approximateCost: approxCost,
-      seatsTotal,
-      passengerIds: [],
-      seatsLeft: passengerCapacity,
-    }));
+
+    const newRides: MRide[] = [];
+    for (const groupId of targets) {
+      let rideId = driverId("ride");
+      try {
+        const dbRide = await SharedRideService.create({
+          driver_id: currentUser.id,
+          group_id: groupId,
+          vehicle: selectedCarForRide.name,
+          origin,
+          destination,
+          departure_time: time,
+          date: date,
+          approximate_cost: approxCost,
+          seats_total: seatsTotal,
+          seats_left: passengerCapacity,
+        });
+        rideId = dbRide.id;
+      } catch (err) {
+        console.error("Failed to persist ride to Supabase:", err);
+      }
+      newRides.push({
+        id: rideId,
+        groupId,
+        driverId: currentUser.id,
+        vehicle: selectedCarForRide.name,
+        origin,
+        destination,
+        departureTime: time,
+        date: date,
+        distance,
+        duration,
+        approximateCost: approxCost,
+        seatsTotal,
+        passengerIds: [],
+        seatsLeft: passengerCapacity,
+      });
+    }
+
     setRides((p) => [...newRides, ...p]);
     const label = [
       ridePostPublic ? "public" : null,
@@ -874,6 +1155,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ridePostGroupSelected,
     ridePostPublic,
     groups,
+    currentUser.id,
     closeRideCreation,
     pushNotification,
   ]);
@@ -915,11 +1197,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDriverFuelOpen(true);
   }, [driverCarDraft]);
 
-  const confirmDriverCarFuel = useCallback(() => {
+  const confirmDriverCarFuel = useCallback(async () => {
     const cons = Number(driverCarConsumption);
     if (!Number.isFinite(cons) || cons <= 0) return;
+
+    let newCarId = driverId("car");
+    try {
+      const created = await CarService.create({
+        id: "",
+        make: driverCarDraft.make,
+        model: driverCarDraft.model,
+        year: Number(driverCarDraft.year) || new Date().getFullYear(),
+        consumption_l_100km: cons,
+        fuel_efficiency: 0,
+      });
+      newCarId = created.id;
+    } catch (err) {
+      console.error("Failed to persist car to Supabase:", err);
+    }
+
     const newCar: MDriverCar = {
-      id: driverId("car"),
+      id: newCarId,
       make: driverCarDraft.make,
       model: driverCarDraft.model,
       year: driverCarDraft.year,
@@ -1194,6 +1492,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setNewMemberEmail,
     addMemberToSelectedGroup,
     removeMemberFromSelectedGroup,
+    deleteGroup,
     joinGroup,
     selectedRideToJoin,
     pickupPoint,

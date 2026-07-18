@@ -1,6 +1,7 @@
-// src/services/mapsApi.ts
 // Client-side helpers that call your Supabase Edge Functions proxy.
 // Your Google Maps API key stays hidden in Supabase (function secrets).
+
+import { supabase } from '../../SupabaseConfig';
 
 export type LatLng = { lat: number; lng: number };
 
@@ -9,19 +10,13 @@ export type PlacePrediction = {
   place_id: string;
 };
 
-// Deployed Functions base URL (set via .env for convenience)
-const FUNCTIONS_BASE = process.env.EXPO_PUBLIC_FUNCTIONS_BASE_URL!;
-
-async function getJSON<T>(path: string, params?: Record<string, string>) {
-  const url =
-    `${FUNCTIONS_BASE}${path}` +
-    (params ? `?${new URLSearchParams(params).toString()}` : "");
-  const res = await fetch(url);
-  if (!res.ok) {
-    const msg = await res.text().catch(() => "");
-    throw new Error(`Request failed ${res.status}: ${msg || url}`);
-  }
-  return (await res.json()) as T;
+async function getJSON<T>(path: string, params?: Record<string, string>): Promise<T> {
+  const fnName = path.replace(/^\//, '');
+  const { data, error } = await supabase.functions.invoke(fnName, {
+    body: params ?? {},
+  });
+  if (error) throw new Error(error.message);
+  return data as T;
 }
 
 /**

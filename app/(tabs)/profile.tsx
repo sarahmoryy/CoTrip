@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, LogOut, Moon, Sun, UserPlus, Users } from "l
 import React, { useState } from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useApp } from "../../components/mockup/AppContext";
-import { findUser, pastTrips } from "../../components/mockup/data";
+import { findUser } from "../../components/mockup/data";
 import { M, RADIUS, useMockTheme } from "../../components/mockup/theme";
 import { Btn, MockScreen, RatingBadge, ShellCard, textInputStyle } from "../../components/mockup/ui";
 import { UserService } from "../../store/all";
@@ -11,13 +11,6 @@ import { UserService } from "../../store/all";
 export default function ProfileScreen() {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
-  const [realUser, setRealUser] = useState<{ full_name: string; email: string } | null>(null);
-
-  React.useEffect(() => {
-    UserService.me()
-      .then((u) => setRealUser({ full_name: u.full_name, email: u.email }))
-      .catch(() => setRealUser(null));
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -208,9 +201,8 @@ export default function ProfileScreen() {
     );
   }
 
-  const totalSavings = pastTrips.reduce((s, t) => s + t.saved, 0);
-  const displayName = realUser?.full_name || currentUser.name;
-  const displayEmail = realUser?.email || currentUser.email;
+  const displayName = currentUser.name || "Loading...";
+  const displayEmail = currentUser.email || "";
 
   return (
     <MockScreen>
@@ -258,7 +250,7 @@ export default function ProfileScreen() {
             />
           </View>
           <Text style={{ fontWeight: "600", color: M.amber500, fontSize: 13 }}>
-            Total saved: ${totalSavings.toFixed(2)}
+            {currentUser.driverRidesCompleted + currentUser.riderRidesCompleted} trips completed
           </Text>
         </View>
       </ShellCard>

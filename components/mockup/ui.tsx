@@ -14,7 +14,9 @@ import {
 import React, { ReactNode } from "react";
 import {
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -462,45 +464,50 @@ export function Sheet({
 }) {
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: M.overlay, justifyContent: "flex-end" }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-        <View
-          style={{
-            backgroundColor: M.surface,
-            borderTopLeftRadius: RADIUS.xl,
-            borderTopRightRadius: RADIUS.xl,
-            maxHeight: "85%",
-            paddingBottom: 24,
-            shadowColor: "#000",
-            shadowOpacity: 0.12,
-            shadowRadius: 24,
-            shadowOffset: { width: 0, height: -6 },
-          }}
-        >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={{ flex: 1, backgroundColor: M.overlay, justifyContent: "flex-end" }}>
+          <Pressable style={{ flex: 1 }} onPress={onClose} />
           <View
             style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingHorizontal: 20,
-              paddingTop: 16,
-              paddingBottom: 12,
+              backgroundColor: M.surface,
+              borderTopLeftRadius: RADIUS.xl,
+              borderTopRightRadius: RADIUS.xl,
+              maxHeight: "85%",
+              paddingBottom: 24,
+              shadowColor: "#000",
+              shadowOpacity: 0.12,
+              shadowRadius: 24,
+              shadowOffset: { width: 0, height: -6 },
             }}
           >
-            <Text style={{ fontSize: 14, fontWeight: "900", color: M.stone950 }}>{title}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={10} style={{ padding: 8, borderRadius: 999 }}>
-              <X color={M.stone500} size={20} />
-            </TouchableOpacity>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: "900", color: M.stone950 }}>{title}</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={10} style={{ padding: 8, borderRadius: 999 }}>
+                <X color={M.stone500} size={20} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
           </View>
-          <ScrollView
-            style={{ maxHeight: 700 }}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {children}
-          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

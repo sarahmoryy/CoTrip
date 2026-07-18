@@ -4,7 +4,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
 };
 
-const MAPS_API_KEY = Deno.env.get("MAPS_API_KEY")!;
+const MAPS_API_KEY = Deno.env.get("MAPS_SECRET_KEY")!;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
 
   const mapsUrl =
     "https://maps.googleapis.com/maps/api/place/autocomplete/json" +
-    `?input=${encodeURIComponent(input)}&types=geocode&key=${MAPS_API_KEY}`;
+    `?input=${encodeURIComponent(input)}&components=country:ca&key=${MAPS_API_KEY}`;
 
   const r = await fetch(mapsUrl);
   const json = await r.json();

@@ -12,12 +12,13 @@ import React from "react";
 import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useApp } from "./AppContext";
 import {
-  carsOwned,
   DRIVER_CAR_CATALOG,
+  DRIVER_GAS_PRICE_PER_L,
   DRIVER_YEARS,
   driverEstimateDistanceKm,
   driverMoney,
   findUser,
+  MCarOwned,
   RIDER_GAS_VARIATION_PCT,
 } from "./data";
 import { M, RADIUS } from "./theme";
@@ -95,23 +96,41 @@ export default function SheetsHost() {
       {/* Car Picker */}
       <Sheet open={a.carPickerOpen} title="Select a car" onClose={a.closeCarPicker}>
         <View style={{ gap: 12 }}>
-          {carsOwned.map((car) => (
-            <TouchableOpacity key={car.id} onPress={() => a.selectCarForPosting(car)}>
-              <ShellCard>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 16 }}>
-                  <RoundIcon>
-                    <Car color={M.white} size={28} />
-                  </RoundIcon>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: "900", color: M.stone950 }}>{car.name}</Text>
-                    <Text style={{ color: M.stone500, fontSize: 13 }}>
-                      {car.seats} seats · ${car.costPerKm.toFixed(2)}/km estimate
-                    </Text>
-                  </View>
-                </View>
-              </ShellCard>
-            </TouchableOpacity>
-          ))}
+          {a.driverCars.length === 0 ? (
+            <ShellCard>
+              <View style={{ padding: 20, alignItems: "center" }}>
+                <Text style={{ color: M.stone500, fontSize: 13 }}>
+                  No cars yet. Add one from Post Ride → My cars.
+                </Text>
+              </View>
+            </ShellCard>
+          ) : (
+            a.driverCars.map((dc) => {
+              const car: MCarOwned = {
+                id: dc.id,
+                name: `${dc.year} ${dc.make} ${dc.model}`,
+                seats: 4,
+                costPerKm: (dc.consumptionLPer100 * DRIVER_GAS_PRICE_PER_L) / 100,
+              };
+              return (
+                <TouchableOpacity key={car.id} onPress={() => a.selectCarForPosting(car)}>
+                  <ShellCard>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 16 }}>
+                      <RoundIcon>
+                        <Car color={M.white} size={28} />
+                      </RoundIcon>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: "900", color: M.stone950 }}>{car.name}</Text>
+                        <Text style={{ color: M.stone500, fontSize: 13 }}>
+                          {car.seats} seats · ${car.costPerKm.toFixed(2)}/km estimate
+                        </Text>
+                      </View>
+                    </View>
+                  </ShellCard>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </Sheet>
 
@@ -121,95 +140,82 @@ export default function SheetsHost() {
           ? (() => {
               const ride = a.selectedRideToJoin!;
               const driver = findUser(a.users, ride.driverId);
-              const expectedTotalCost = Number(ride.approximateCost || 0);
-              const maxTripCost = expectedTotalCost / 2;
-              const maxLow = maxTripCost * (1 - RIDER_GAS_VARIATION_PCT);
-              const maxHigh = maxTripCost * (1 + RIDER_GAS_VARIATION_PCT);
+              const seatsTotal = ride.seatsTotal || 4;
+              const seatsTaken = seatsTotal - (ride.seatsLeft ?? seatsTotal - 1);
+              const costPerRider = ride.approximateCost
+                ? ride.approximateCost / seatsTotal
+                : 0;
               return (
                 <View style={{ gap: 16 }}>
-                  <ShellCard>
-                    <View style={{ padding: 16, gap: 8 }}>
-                      <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 16 }}>
-                        {ride.origin} <Text style={{ color: M.amber500 }}>→</Text> {ride.destination}
-                      </Text>
-                      <Text style={{ color: M.stone500, fontSize: 13 }}>
-                        {ride.date}, {ride.departureTime} · {ride.duration}
-                      </Text>
-                      <Text style={{ color: M.stone500, fontSize: 11 }}>
-                        vehicle: <Text style={{ fontWeight: "900", color: M.stone950 }}>{ride.vehicle}</Text> · seats
-                        left: {ride.seatsLeft}
-                      </Text>
+                  {/* Route + details */}
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18 }}>
+                      {ride.origin}
+                    </Text>
+                    <Text style={{ color: M.amber500, fontSize: 13, fontWeight: "900" }}>↓</Text>
+                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18 }}>
+                      {ride.destination}
+                    </Text>
+                    <Text style={{ color: M.stone500, fontSize: 13, marginTop: 4 }}>
+                      {ride.date} · {ride.departureTime}
+                      {ride.vehicle ? `  ·  ${ride.vehicle}` : ""}
+                    </Text>
+                  </View>
 
-                      <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
-                        <View style={{ flex: 1, backgroundColor: M.stone50, padding: 10, borderRadius: RADIUS.md }}>
-                          <Text style={{ fontWeight: "900", color: M.stone500, fontSize: 10 }}>
-                            estimated total
-                          </Text>
-                          <Text
-                            style={{ fontWeight: "900", color: M.stone950, fontSize: 13, marginTop: 4 }}
-                          >
-                            {driverMoney(expectedTotalCost)}
-                          </Text>
-                        </View>
+                  {/* Driver */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: M.stone50, padding: 12, borderRadius: RADIUS.md }}>
+                    <Image source={{ uri: driver.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: "900", color: M.stone950 }}>{driver.name}</Text>
+                      <RatingBadge
+                        label="Driver"
+                        rating={driver.driverRating}
+                        reviewCount={driver.driverReviewCount}
+                        ridesCompleted={driver.driverRidesCompleted}
+                        compact
+                      />
+                    </View>
+                    {costPerRider > 0 && (
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 16 }}>
+                          {driverMoney(costPerRider)}
+                        </Text>
+                        <Text style={{ color: M.stone400, fontSize: 11 }}>est. / person</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Seats */}
+                  <View style={{ gap: 8 }}>
+                    <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 12 }}>
+                      SEATS — {seatsTaken} of {seatsTotal} filled
+                    </Text>
+                    <View style={{ flexDirection: "row", gap: 6 }}>
+                      {Array.from({ length: seatsTotal }).map((_, i) => (
                         <View
+                          key={i}
                           style={{
                             flex: 1,
-                            backgroundColor: M.amber50,
-                            padding: 10,
-                            borderRadius: RADIUS.md,
-                            borderWidth: 1,
-                            borderColor: M.amber100,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: i < seatsTaken ? M.amber400 : M.stone100,
                           }}
-                        >
-                          <Text style={{ fontWeight: "900", color: M.stone500, fontSize: 10 }}>your max cost</Text>
-                          <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 13, marginTop: 4 }}>
-                            {driverMoney(maxTripCost)}
-                          </Text>
-                          <Text style={{ fontWeight: "600", color: M.stone500, fontSize: 10, marginTop: 4 }}>
-                            range: {driverMoney(maxLow)} – {driverMoney(maxHigh)} (±
-                            {Math.round(RIDER_GAS_VARIATION_PCT * 100)}%)
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ fontWeight: "600", color: M.stone500, fontSize: 11 }}>
-                        Max cost is set to 50% of the estimated total, with a ±
-                        {Math.round(RIDER_GAS_VARIATION_PCT * 100)}% buffer for gas price variation.
-                      </Text>
-                    </View>
-                  </ShellCard>
-
-                  <View
-                    style={{ backgroundColor: M.amber50, padding: 12, borderRadius: RADIUS.md }}
-                  >
-                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 13 }}>Driver</Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8 }}>
-                      <Image
-                        source={{ uri: driver.avatar }}
-                        style={{ width: 40, height: 40, borderRadius: 20 }}
-                      />
-                      <View>
-                        <Text style={{ fontWeight: "900", color: M.stone950 }}>{driver.name}</Text>
-                        <RatingBadge
-                          label="Driver"
-                          rating={driver.driverRating}
-                          reviewCount={driver.driverReviewCount}
-                          ridesCompleted={driver.driverRidesCompleted}
-                          compact
                         />
-                      </View>
+                      ))}
                     </View>
                   </View>
 
+                  {/* Pickup / dropoff */}
                   <View style={{ gap: 8 }}>
                     <TextInput
-                      placeholder="Preferred pickup point"
+                      placeholder="Your pickup point"
                       placeholderTextColor={M.stone400}
                       value={a.pickupPoint}
                       onChangeText={a.setPickupPoint}
                       style={textInputStyle()}
                     />
                     <TextInput
-                      placeholder="Preferred drop-off point"
+                      placeholder="Your drop-off point"
                       placeholderTextColor={M.stone400}
                       value={a.dropoffPoint}
                       onChangeText={a.setDropoffPoint}
@@ -217,13 +223,8 @@ export default function SheetsHost() {
                     />
                   </View>
 
-                  <Text style={{ color: M.stone500, fontSize: 11, lineHeight: 16 }}>
-                    Your request will be sent to the driver for approval. The ride is not confirmed until the
-                    driver accepts.
-                  </Text>
-
                   <Btn onPress={a.submitJoinRequest} style={{ height: 50 }}>
-                    Send Request for Driver Approval
+                    Send Request
                   </Btn>
                 </View>
               );

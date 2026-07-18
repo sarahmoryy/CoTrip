@@ -1,8 +1,11 @@
-import { Car, Plus, Star } from "lucide-react-native";
-import React from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Calendar, Car, Clock, Plus } from "lucide-react-native";
+import React, { useState } from "react";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
+import AutocompleteInput from "../../components/AutoComplete";
 import { useApp } from "../../components/mockup/AppContext";
-import { carsOwned } from "../../components/mockup/data";
+import type { MCarOwned } from "../../components/mockup/data";
+import { DRIVER_GAS_PRICE_PER_L } from "../../components/mockup/data";
 import { M, RADIUS } from "../../components/mockup/theme";
 import {
   Btn,
@@ -10,12 +13,31 @@ import {
   RoundIcon,
   SectionHeader,
   ShellCard,
-  textInputStyle,
 } from "../../components/mockup/ui";
 
+function driverCarToOwned(car: { id: string; make: string; model: string; year: string; consumptionLPer100: number }): MCarOwned {
+  return {
+    id: car.id,
+    name: `${car.year} ${car.make} ${car.model}`,
+    seats: 4,
+    costPerKm: (car.consumptionLPer100 * DRIVER_GAS_PRICE_PER_L) / 100,
+  };
+}
+
+function formatDate(d: Date) {
+  return d.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
+}
+function formatTime(d: Date) {
+  return d.toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function PostRideScreen() {
+  const [pickerDate, setPickerDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [rideTypeOpen, setRideTypeOpen] = useState(false);
+
   const {
-    pinnedPostRides,
     driverCars,
     groups,
     openCarPicker,
@@ -37,17 +59,42 @@ export default function PostRideScreen() {
     <MockScreen>
       <Text style={{ fontSize: 28, fontWeight: "900", color: M.stone950 }}>Post Ride</Text>
 
-      <Btn onPress={openCarPicker} style={{ height: 56, gap: 12 }}>
-        <Plus color={M.white} size={22} />
-        <Text style={{ color: M.white, fontWeight: "900", fontSize: 15 }}>Create New Ride</Text>
-      </Btn>
+      {!selectedCarForRide && (
+        <>
+          <Btn
+            onPress={() => setRideTypeOpen((v) => !v)}
+            style={{ height: 56, gap: 12 }}
+          >
+            <Plus color={M.white} size={22} />
+            <Text style={{ color: M.white, fontWeight: "900", fontSize: 15 }}>Create Ride</Text>
+          </Btn>
 
-      <Btn onPress={openDriverTripWizard} variant="secondary" style={{ height: 50, gap: 8 }}>
-        <Plus color={M.amber600} size={18} />
-        <Text style={{ color: M.amber600, fontWeight: "900", fontSize: 13 }}>
-          Create Driver Trip (cost split)
-        </Text>
-      </Btn>
+          {rideTypeOpen && (
+            <ShellCard>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => { setRideTypeOpen(false); openCarPicker(); }}
+                style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: M.stone100 }}
+              >
+                <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 14 }}>Post a Ride</Text>
+                <Text style={{ marginTop: 2, color: M.stone500, fontSize: 12 }}>
+                  Find riders for your route
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => { setRideTypeOpen(false); openDriverTripWizard(); }}
+                style={{ padding: 16 }}
+              >
+                <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 14 }}>Split Costs</Text>
+                <Text style={{ marginTop: 2, color: M.stone500, fontSize: 12 }}>
+                  Share gas expenses with friends
+                </Text>
+              </TouchableOpacity>
+            </ShellCard>
+          )}
+        </>
+      )}
 
       {selectedCarForRide ? (
         <ShellCard>
@@ -67,27 +114,91 @@ export default function PostRideScreen() {
               </TouchableOpacity>
             </View>
 
-            <TextInput
+            <AutocompleteInput
               placeholder="Departure location"
-              placeholderTextColor={M.stone400}
-              value={newRideForm.origin}
-              onChangeText={(v) => setNewRideForm({ ...newRideForm, origin: v })}
-              style={textInputStyle()}
+              initialText={newRideForm.origin}
+              onSelected={(v) => setNewRideForm({ ...newRideForm, origin: v.description })}
+              onTextChange={(v) => setNewRideForm({ ...newRideForm, origin: v })}
             />
-            <TextInput
+            <AutocompleteInput
               placeholder="Destination"
-              placeholderTextColor={M.stone400}
-              value={newRideForm.destination}
-              onChangeText={(v) => setNewRideForm({ ...newRideForm, destination: v })}
-              style={textInputStyle()}
+              initialText={newRideForm.destination}
+              onSelected={(v) => setNewRideForm({ ...newRideForm, destination: v.description })}
+              onTextChange={(v) => setNewRideForm({ ...newRideForm, destination: v })}
             />
-            <TextInput
-              placeholder="Departure time"
-              placeholderTextColor={M.stone400}
-              value={newRideForm.time}
-              onChangeText={(v) => setNewRideForm({ ...newRideForm, time: v })}
-              style={textInputStyle()}
-            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => { setShowTimePicker(false); setShowDatePicker((v) => !v); }}
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  borderWidth: 1,
+                  borderColor: showDatePicker ? M.amber400 : M.stone200,
+                  borderRadius: RADIUS.md,
+                  paddingHorizontal: 12,
+                  paddingVertical: 13,
+                  backgroundColor: M.surface,
+                }}
+              >
+                <Calendar size={16} color={M.amber500} />
+                <Text style={{ color: newRideForm.date ? M.stone950 : M.stone400, fontSize: 14 }}>
+                  {newRideForm.date || "Date"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => { setShowDatePicker(false); setShowTimePicker((v) => !v); }}
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  borderWidth: 1,
+                  borderColor: showTimePicker ? M.amber400 : M.stone200,
+                  borderRadius: RADIUS.md,
+                  paddingHorizontal: 12,
+                  paddingVertical: 13,
+                  backgroundColor: M.surface,
+                }}
+              >
+                <Clock size={16} color={M.amber500} />
+                <Text style={{ color: newRideForm.time ? M.stone950 : M.stone400, fontSize: 14 }}>
+                  {newRideForm.time || "Time"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {showDatePicker && (
+              <DateTimePicker
+                value={pickerDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                minimumDate={new Date()}
+                onChange={(_, selected) => {
+                  if (Platform.OS === "android") setShowDatePicker(false);
+                  if (selected) {
+                    setPickerDate(selected);
+                    setNewRideForm({ ...newRideForm, date: formatDate(selected) });
+                  }
+                }}
+              />
+            )}
+            {showTimePicker && (
+              <DateTimePicker
+                value={pickerDate}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={(_, selected) => {
+                  if (Platform.OS === "android") setShowTimePicker(false);
+                  if (selected) {
+                    setPickerDate(selected);
+                    setNewRideForm({ ...newRideForm, time: formatTime(selected) });
+                  }
+                }}
+              />
+            )}
 
             <View style={{ gap: 8 }}>
               <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>Post to</Text>
@@ -173,28 +284,6 @@ export default function PostRideScreen() {
         </ShellCard>
       ) : null}
 
-      <SectionHeader icon={<Star color={M.amber500} size={22} />} title="Pinned Rides" />
-      <View style={{ gap: 12 }}>
-        {pinnedPostRides.map((ride) => (
-          <ShellCard key={ride.id}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: 16,
-              }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: "900", color: M.stone950 }}>{ride.route}</Text>
-                <Text style={{ color: M.stone500, fontSize: 13, marginTop: 4 }}>{ride.schedule}</Text>
-              </View>
-              <Btn style={{ paddingHorizontal: 14, paddingVertical: 8 }}>Repost</Btn>
-            </View>
-          </ShellCard>
-        ))}
-      </View>
-
       <SectionHeader icon={<Car color={M.amber500} size={22} />} title="Cars Owned" />
 
       <ShellCard>
@@ -237,25 +326,39 @@ export default function PostRideScreen() {
         </View>
       </ShellCard>
 
-      <View style={{ gap: 12 }}>
-        {carsOwned.map((car) => (
-          <TouchableOpacity key={car.id} onPress={() => selectCarForPosting(car)}>
-            <ShellCard>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 16 }}>
-                <RoundIcon>
-                  <Car color={M.white} size={28} />
-                </RoundIcon>
-                <View>
-                  <Text style={{ fontWeight: "700", color: M.stone950 }}>{car.name}</Text>
-                  <Text style={{ color: M.stone500, fontSize: 13 }}>
-                    {car.seats} seats · ${car.costPerKm.toFixed(2)}/km estimate
-                  </Text>
-                </View>
-              </View>
-            </ShellCard>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionHeader icon={<Car color={M.amber500} size={22} />} title="Post with My Car" />
+      {driverCars.length === 0 ? (
+        <ShellCard>
+          <View style={{ padding: 20, alignItems: "center" }}>
+            <Text style={{ color: M.stone500, fontSize: 13 }}>
+              Add a car above to start posting rides.
+            </Text>
+          </View>
+        </ShellCard>
+      ) : (
+        <View style={{ gap: 12 }}>
+          {driverCars.map((car) => {
+            const carOwned = driverCarToOwned(car);
+            return (
+              <TouchableOpacity key={carOwned.id} onPress={() => selectCarForPosting(carOwned)}>
+                <ShellCard>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 16, padding: 16 }}>
+                    <RoundIcon>
+                      <Car color={M.white} size={28} />
+                    </RoundIcon>
+                    <View>
+                      <Text style={{ fontWeight: "700", color: M.stone950 }}>{carOwned.name}</Text>
+                      <Text style={{ color: M.stone500, fontSize: 13 }}>
+                        {carOwned.seats} seats · ${carOwned.costPerKm.toFixed(2)}/km estimate
+                      </Text>
+                    </View>
+                  </View>
+                </ShellCard>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
     </MockScreen>
   );
 }
