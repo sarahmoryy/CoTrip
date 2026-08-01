@@ -122,17 +122,6 @@ export type MDriverTrip = {
 };
 
 
-export const DRIVER_CAR_CATALOG: Record<string, string[]> = {
-  Toyota: ["Corolla", "Camry", "RAV4"],
-  Honda: ["Civic", "Accord", "CR-V"],
-  Mazda: ["3", "CX-5"],
-  Hyundai: ["Elantra", "Tucson"],
-};
-
-export const DRIVER_YEARS: string[] = Array.from({ length: 18 }, (_, i) =>
-  String(new Date().getFullYear() - i)
-);
-
 export const DRIVER_GAS_PRICE_PER_L = 1.7;
 export const RIDER_GAS_VARIATION_PCT = 0.12;
 
