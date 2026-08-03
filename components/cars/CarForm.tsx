@@ -1,6 +1,7 @@
 import { Car as CarIcon, X } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Keyboard,
   Modal,
@@ -10,14 +11,8 @@ import {
   TouchableWithoutFeedback,
   View
 } from "react-native";
+import { CarService } from "../../store/carService";
 import { Car } from "../../store/carSlice";
-import {
-  CAR_MAKES,
-  CAR_MODELS,
-  CAR_YEARS,
-  VEHICLES,
-  VehicleEntry,
-} from "../../vehicleLists";
 import { Btn } from "../ui/primitives";
 import { useTheme } from "../ui/theme";
 
@@ -28,6 +23,8 @@ interface Props {
   isSaving: boolean;
 }
 type SearchType = "make" | "model" | "year" | null;
+
+const SEARCH_DEBOUNCE_MS = 250;
 
 export default function CarForm({ car, onSave, onCancel, isSaving }: Props) {
   const { C } = useTheme();
@@ -40,54 +37,74 @@ export default function CarForm({ car, onSave, onCancel, isSaving }: Props) {
   });
   const [searchType, setSearchType] = useState<SearchType>(null);
   const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [yearOptions, setYearOptions] = useState<string[]>([]);
+  const requestIdRef = useRef(0);
 
-  const modelOptions = useMemo(
-    () => (formData.make ? (CAR_MODELS[formData.make] ?? []) : []),
-    [formData.make],
-  );
-  const yearOptions = useMemo(
-    () =>
-      formData.make && formData.model
-        ? (CAR_YEARS[formData.make]?.[formData.model] ?? []).map(String)
-        : [],
-    [formData.make, formData.model],
-  );
+  // Fetch the full year list once when the year picker opens (small list,
+  // cheap to filter locally as the user types).
+  useEffect(() => {
+    if (searchType !== "year" || !formData.make || !formData.model) return;
+    let cancelled = false;
+    CarService.listYears(formData.make, formData.model).then((years) => {
+      if (!cancelled) setYearOptions(years.map(String));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchType, formData.make, formData.model]);
 
-  const suggestions = useMemo(() => {
-    if (!searchType || !query) return [];
-    const list =
-      searchType === "make"
-        ? CAR_MAKES
-        : searchType === "model"
-          ? modelOptions
-          : yearOptions;
-    const q = query.toLowerCase();
-    const starts: string[] = [];
-    const wordStarts: string[] = [];
-    const includes: string[] = [];
-    for (const item of list) {
-      const l = item.toLowerCase();
-      if (l.startsWith(q)) starts.push(item);
-      else if (l.split(" ").some((w) => w.startsWith(q))) wordStarts.push(item);
-      else if (l.includes(q)) includes.push(item);
+  // Debounced search-as-you-type for make/model; local filter for year.
+  useEffect(() => {
+    if (!searchType || !query) {
+      setSuggestions([]);
+      setLoadingSuggestions(false);
+      return;
     }
-    return [...starts, ...wordStarts, ...includes].slice(0, 6);
-  }, [searchType, query, modelOptions, yearOptions]);
+
+    if (searchType === "year") {
+      const q = query.toLowerCase();
+      setSuggestions(yearOptions.filter((y) => y.startsWith(q)).slice(0, 6));
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
+    setLoadingSuggestions(true);
+    const timer = setTimeout(async () => {
+      const results =
+        searchType === "make"
+          ? await CarService.searchMakes(query)
+          : await CarService.searchModels(formData.make, query);
+      if (requestIdRef.current === requestId) {
+        setSuggestions(results);
+        setLoadingSuggestions(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchType, query, formData.make, yearOptions]);
 
   useEffect(() => {
     if (!formData.make || !formData.model || !formData.year) return;
-    const entry: VehicleEntry | undefined = VEHICLES[formData.make]?.[
-      formData.model
-    ]?.find((v) => v.year === Number(formData.year));
-    if (entry)
-      setFormData((p) => ({
-        ...p,
-        consumption_l_100km: entry.combinedLPer100km.toString(),
-      }));
-  }, [formData.year]);
+    let cancelled = false;
+    CarService.fetchConsumption(formData.make, formData.model, Number(formData.year)).then(
+      (consumption) => {
+        if (!cancelled && consumption != null)
+          setFormData((p) => ({
+            ...p,
+            consumption_l_100km: consumption.toString(),
+          }));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.make, formData.model, formData.year]);
 
   const openSearch = (type: SearchType) => {
     setQuery("");
+    setSuggestions([]);
     setSearchType(type);
   };
   const selectValue = (value: string) => {
@@ -326,7 +343,12 @@ export default function CarForm({ car, onSave, onCancel, isSaving }: Props) {
                 }}
                 blurOnSubmit={false}
               />
-              {suggestions.length === 0 ? (
+              {loadingSuggestions ? (
+                <ActivityIndicator
+                  color={C.green}
+                  style={{ padding: 24 }}
+                />
+              ) : suggestions.length === 0 ? (
                 <Text
                   style={{
                     color: C.textMuted,

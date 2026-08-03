@@ -9,8 +9,6 @@ import React, {
 } from "react";
 import {
   computeDriverTripCosts,
-  DRIVER_CAR_CATALOG,
-  DRIVER_YEARS,
   driverEstimateDistanceKm,
   driverId,
   findUser,
@@ -200,9 +198,13 @@ export type AppContextValue = {
   driverFuelOpen: boolean;
   setDriverFuelOpen: (v: boolean) => void;
   driverCarDraft: { make: string; model: string; year: string };
-  setDriverCarDraft: (
-    f: (prev: { make: string; model: string; year: string }) => { make: string; model: string; year: string }
-  ) => void;
+  driverCarLoading: boolean;
+  driverMakeOptions: string[];
+  driverModelOptions: string[];
+  driverYearOptions: string[];
+  selectDriverCarMake: (make: string) => void;
+  selectDriverCarModel: (model: string) => void;
+  selectDriverCarYear: (year: string) => void;
   driverCarConsumption: string;
   setDriverCarConsumption: (v: string) => void;
   confirmDriverCarBasic: () => void;
@@ -336,11 +338,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [driverCars, setDriverCars] = useState<MDriverCar[]>([]);
   const [driverAddCarOpen, setDriverAddCarOpen] = useState(false);
   const [driverFuelOpen, setDriverFuelOpen] = useState(false);
-  const [driverCarDraft, setDriverCarDraft] = useState({
-    make: Object.keys(DRIVER_CAR_CATALOG)[0],
-    model: DRIVER_CAR_CATALOG[Object.keys(DRIVER_CAR_CATALOG)[0]][0],
-    year: DRIVER_YEARS[0],
-  });
+  const [driverCarDraft, setDriverCarDraft] = useState({ make: "", model: "", year: "" });
+  const [driverCarLoading, setDriverCarLoading] = useState(false);
+  const [driverMakeOptions, setDriverMakeOptions] = useState<string[]>([]);
+  const [driverModelOptions, setDriverModelOptions] = useState<string[]>([]);
+  const [driverYearOptions, setDriverYearOptions] = useState<string[]>([]);
   const [driverCarConsumption, setDriverCarConsumption] = useState("7.5");
 
   const [driverFriendIds, setDriverFriendIds] = useState<string[]>([]);
@@ -1228,14 +1230,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   // ---- driver cars ----
-  const driverResetCarDraft = useCallback(() => {
-    const firstMake = Object.keys(DRIVER_CAR_CATALOG)[0];
-    setDriverCarDraft({
-      make: firstMake,
-      model: DRIVER_CAR_CATALOG[firstMake][0],
-      year: DRIVER_YEARS[0],
-    });
+  const driverResetCarDraft = useCallback(async () => {
+    setDriverCarLoading(true);
+    const makes = await CarService.listMakes();
+    const firstMake = makes[0] || "";
+    const models = firstMake ? await CarService.listModels(firstMake) : [];
+    const firstModel = models[0] || "";
+    const years = firstModel ? await CarService.listYears(firstMake, firstModel) : [];
+    const firstYear = years[0] != null ? String(years[0]) : "";
+
+    setDriverMakeOptions(makes);
+    setDriverModelOptions(models);
+    setDriverYearOptions(years.map(String));
+    setDriverCarDraft({ make: firstMake, model: firstModel, year: firstYear });
     setDriverCarConsumption("7.5");
+    setDriverCarLoading(false);
   }, []);
 
   const openDriverAddCar = useCallback(() => {
@@ -1243,8 +1252,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDriverAddCarOpen(true);
   }, [driverResetCarDraft]);
 
-  const confirmDriverCarBasic = useCallback(() => {
+  const selectDriverCarMake = useCallback(async (make: string) => {
+    setDriverCarDraft({ make, model: "", year: "" });
+    setDriverModelOptions([]);
+    setDriverYearOptions([]);
+    const models = await CarService.listModels(make);
+    const firstModel = models[0] || "";
+    const years = firstModel ? await CarService.listYears(make, firstModel) : [];
+    const firstYear = years[0] != null ? String(years[0]) : "";
+    setDriverModelOptions(models);
+    setDriverYearOptions(years.map(String));
+    setDriverCarDraft({ make, model: firstModel, year: firstYear });
+  }, []);
+
+  const selectDriverCarModel = useCallback(
+    async (model: string) => {
+      const make = driverCarDraft.make;
+      setDriverCarDraft((prev) => ({ ...prev, model, year: "" }));
+      setDriverYearOptions([]);
+      const years = await CarService.listYears(make, model);
+      const firstYear = years[0] != null ? String(years[0]) : "";
+      setDriverYearOptions(years.map(String));
+      setDriverCarDraft({ make, model, year: firstYear });
+    },
+    [driverCarDraft.make],
+  );
+
+  const selectDriverCarYear = useCallback((year: string) => {
+    setDriverCarDraft((prev) => ({ ...prev, year }));
+  }, []);
+
+  const confirmDriverCarBasic = useCallback(async () => {
     if (!driverCarDraft.make || !driverCarDraft.model || !driverCarDraft.year) return;
+    const consumption = await CarService.fetchConsumption(
+      driverCarDraft.make,
+      driverCarDraft.model,
+      Number(driverCarDraft.year),
+    );
+    setDriverCarConsumption(consumption != null ? String(consumption) : "7.5");
     setDriverAddCarOpen(false);
     setDriverFuelOpen(true);
   }, [driverCarDraft]);
@@ -1602,7 +1647,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     driverFuelOpen,
     setDriverFuelOpen,
     driverCarDraft,
-    setDriverCarDraft,
+    driverCarLoading,
+    driverMakeOptions,
+    driverModelOptions,
+    driverYearOptions,
+    selectDriverCarMake,
+    selectDriverCarModel,
+    selectDriverCarYear,
     driverCarConsumption,
     setDriverCarConsumption,
     confirmDriverCarBasic,

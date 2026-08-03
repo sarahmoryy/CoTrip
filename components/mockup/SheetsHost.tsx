@@ -9,12 +9,18 @@ import {
   XCircle,
 } from "lucide-react-native";
 import React from "react";
-import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useApp } from "./AppContext";
 import {
-  DRIVER_CAR_CATALOG,
   DRIVER_GAS_PRICE_PER_L,
-  DRIVER_YEARS,
   driverEstimateDistanceKm,
   driverMoney,
   findUser,
@@ -909,47 +915,40 @@ export default function SheetsHost() {
         title="Add car"
         onClose={() => a.setDriverAddCarOpen(false)}
       >
-        <View style={{ gap: 12 }}>
-          <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>make</Text>
-          <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
-            <Picker
-              selectedValue={a.driverCarDraft.make}
-              onValueChange={(make) =>
-                a.setDriverCarDraft((prev) => ({ ...prev, make, model: DRIVER_CAR_CATALOG[make][0] }))
-              }
-            >
-              {Object.keys(DRIVER_CAR_CATALOG).map((make) => (
-                <Picker.Item key={make} label={make} value={make} />
-              ))}
-            </Picker>
-          </View>
+        {a.driverCarLoading ? (
+          <ActivityIndicator color={M.amber500} style={{ padding: 24 }} />
+        ) : (
+          <View style={{ gap: 12 }}>
+            <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>make</Text>
+            <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
+              <Picker selectedValue={a.driverCarDraft.make} onValueChange={a.selectDriverCarMake}>
+                {a.driverMakeOptions.map((make) => (
+                  <Picker.Item key={make} label={make} value={make} />
+                ))}
+              </Picker>
+            </View>
 
-          <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>model</Text>
-          <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
-            <Picker
-              selectedValue={a.driverCarDraft.model}
-              onValueChange={(model) => a.setDriverCarDraft((prev) => ({ ...prev, model }))}
-            >
-              {(DRIVER_CAR_CATALOG[a.driverCarDraft.make] || []).map((m) => (
-                <Picker.Item key={m} label={m} value={m} />
-              ))}
-            </Picker>
-          </View>
+            <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>model</Text>
+            <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
+              <Picker selectedValue={a.driverCarDraft.model} onValueChange={a.selectDriverCarModel}>
+                {a.driverModelOptions.map((m) => (
+                  <Picker.Item key={m} label={m} value={m} />
+                ))}
+              </Picker>
+            </View>
 
-          <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>year</Text>
-          <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
-            <Picker
-              selectedValue={a.driverCarDraft.year}
-              onValueChange={(year) => a.setDriverCarDraft((prev) => ({ ...prev, year }))}
-            >
-              {DRIVER_YEARS.map((y) => (
-                <Picker.Item key={y} label={y} value={y} />
-              ))}
-            </Picker>
-          </View>
+            <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>year</Text>
+            <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
+              <Picker selectedValue={a.driverCarDraft.year} onValueChange={a.selectDriverCarYear}>
+                {a.driverYearOptions.map((y) => (
+                  <Picker.Item key={y} label={y} value={y} />
+                ))}
+              </Picker>
+            </View>
 
-          <Btn onPress={a.confirmDriverCarBasic}>confirm</Btn>
-        </View>
+            <Btn onPress={a.confirmDriverCarBasic}>confirm</Btn>
+          </View>
+        )}
       </Sheet>
 
       {/* Driver: Fuel */}
@@ -965,7 +964,7 @@ export default function SheetsHost() {
                 {a.driverCarDraft.year} {a.driverCarDraft.make} {a.driverCarDraft.model}
               </Text>
               <Text style={{ color: M.stone500, fontSize: 11 }}>
-                enter average consumption (L/100km)
+                estimated consumption (L/100km) — edit if needed
               </Text>
             </View>
           </ShellCard>
