@@ -13,6 +13,7 @@ export interface DBRide {
   seats_total: number;
   seats_left: number;
   status: string;
+  completed: boolean;
 }
 
 export interface DBRideRequest {

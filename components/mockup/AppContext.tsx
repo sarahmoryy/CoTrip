@@ -122,6 +122,18 @@ export type AppContextValue = {
   deleteGroup: (id: string) => void;
   joinGroup: (id: string) => void;
 
+  // ride detail (browse)
+  selectedRideDetail: MRide | null;
+  openRideDetail: (r: MRide) => void;
+  closeRideDetail: () => void;
+
+  // posted ride detail / edit
+  selectedPostedRide: MRide | null;
+  openPostedRideDetail: (r: MRide) => void;
+  closePostedRideDetail: () => void;
+  updatePostedRide: (id: string, fields: Partial<Pick<MRide, "origin" | "destination" | "departureTime" | "date" | "vehicle">>) => void;
+  markRideComplete: (id: string) => void;
+
   // join request
   selectedRideToJoin: MRide | null;
   pickupPoint: string;
@@ -135,6 +147,7 @@ export type AppContextValue = {
   // driver approval (acting as driver)
   approveRideRequest: (id: string) => void;
   declineRideRequest: (id: string) => void;
+  reassignDriver: (rideId: string, newDriverId: string) => void;
 
   // confirmed ride actions
   cancelConfirmedRide: (id: string) => void;
@@ -285,6 +298,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [newMemberEmail, setNewMemberEmail] = useState("");
 
+  const [selectedRideDetail, setSelectedRideDetail] = useState<MRide | null>(null);
+  const [selectedPostedRide, setSelectedPostedRide] = useState<MRide | null>(null);
   const [selectedRideToJoin, setSelectedRideToJoin] = useState<MRide | null>(null);
   const [pickupPoint, setPickupPoint] = useState("");
   const [dropoffPoint, setDropoffPoint] = useState("");
@@ -440,6 +455,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           seatsTotal: r.seats_total,
           passengerIds: [],
           seatsLeft: r.seats_left,
+          completed: r.completed,
         }));
         setRides(mRides);
 
@@ -757,6 +773,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await GroupService.delete(groupId).catch(console.error);
   }, []);
 
+  // ---- ride detail ----
+  const openRideDetail = useCallback((ride: MRide) => setSelectedRideDetail(ride), []);
+  const closeRideDetail = useCallback(() => setSelectedRideDetail(null), []);
+
+  // ---- posted ride detail / edit ----
+  const openPostedRideDetail = useCallback((ride: MRide) => setSelectedPostedRide(ride), []);
+  const closePostedRideDetail = useCallback(() => setSelectedPostedRide(null), []);
+  const updatePostedRide = useCallback((id: string, fields: Partial<Pick<MRide, "origin" | "destination" | "departureTime" | "date" | "vehicle">>) => {
+    setRides((p) => p.map((r) => r.id === id ? { ...r, ...fields } : r));
+    setSelectedPostedRide((prev) => prev?.id === id ? { ...prev, ...fields } : prev);
+    supabase.from("rides").update({
+      origin: fields.origin,
+      destination: fields.destination,
+      departure_time: fields.departureTime,
+      date: fields.date,
+      vehicle: fields.vehicle,
+    }).eq("id", id).then(({ error }) => {
+      if (error) console.error("Failed to update ride:", error);
+    });
+  }, []);
+
+  const markRideComplete = useCallback((id: string) => {
+    setRides((p) => p.map((r) => r.id === id ? { ...r, completed: true } : r));
+    setSelectedPostedRide(null);
+    supabase.from("rides").update({ completed: true }).eq("id", id).then(({ error }) => {
+      if (error) console.error("Failed to mark ride complete:", error);
+    });
+  }, []);
+
   // ---- join request ----
   const openJoinRequest = useCallback((ride: MRide) => {
     setSelectedRideToJoin(ride);
@@ -883,6 +928,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [rideRequests, rides, pushNotification]
   );
+
+  const reassignDriver = useCallback((rideId: string, newDriverId: string) => {
+    setRides((p) => p.map((r) => r.id === rideId ? { ...r, driverId: newDriverId } : r));
+    supabase.from("rides").update({ driver_id: newDriverId }).eq("id", rideId).then(({ error }) => {
+      if (error) console.error("Failed to reassign driver:", error);
+    });
+  }, []);
 
   // ---- confirmation actions ----
   const cancelConfirmedRide = useCallback(
@@ -1061,7 +1113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const closeRideCreation = useCallback(() => {
     setSelectedCarForRide(null);
-    setNewRideForm({ origin: "", destination: "", time: "" });
+    setNewRideForm({ origin: "", destination: "", time: "", date: "" });
     resetRidePostTargets();
   }, [resetRidePostTargets]);
 
@@ -1494,6 +1546,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     removeMemberFromSelectedGroup,
     deleteGroup,
     joinGroup,
+    selectedRideDetail,
+    openRideDetail,
+    closeRideDetail,
     selectedRideToJoin,
     pickupPoint,
     setPickupPoint,
@@ -1504,6 +1559,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     submitJoinRequest,
     approveRideRequest,
     declineRideRequest,
+    reassignDriver,
     cancelConfirmedRide,
     sendQuickMessage,
     markRideCompletion,
@@ -1597,6 +1653,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     driverRateComment,
     setDriverRateComment,
     confirmDriverRate,
+    selectedPostedRide,
+    openPostedRideDetail,
+    closePostedRideDetail,
+    updatePostedRide,
+    markRideComplete,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -38,6 +38,7 @@ export type MRide = {
   seatsTotal: number;
   passengerIds: string[];
   seatsLeft: number;
+  completed?: boolean;
 };
 
 export type MRequestStatus = "pending" | "approved" | "declined" | "cancelled" | "completed";

@@ -9,7 +9,7 @@ import {
   XCircle,
 } from "lucide-react-native";
 import React from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useApp } from "./AppContext";
 import {
   DRIVER_CAR_CATALOG,
@@ -36,6 +36,111 @@ import {
   StatusPill,
   textInputStyle,
 } from "./ui";
+
+function PostedRideDetailContent() {
+  const a = useApp();
+  const ride = a.selectedPostedRide!;
+  const seatsTotal = ride.seatsTotal || 4;
+  const approvedRequests = a.rideRequests.filter(
+    (r) => r.rideId === ride.id && r.status === "approved"
+  );
+  const pendingRequests = a.rideRequests.filter(
+    (r) => r.rideId === ride.id && r.status === "pending"
+  );
+
+  return (
+    <View style={{ gap: 16 }}>
+      {/* Route */}
+      <View style={{ gap: 4 }}>
+        <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 20 }}>{ride.origin}</Text>
+        <Text style={{ color: M.amber500, fontWeight: "900", fontSize: 14 }}>↓</Text>
+        <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 20 }}>{ride.destination}</Text>
+        <Text style={{ color: M.stone500, fontSize: 13, marginTop: 4 }}>
+          {ride.date}{ride.departureTime ? ` · ${ride.departureTime}` : ""}
+          {ride.vehicle ? `  ·  ${ride.vehicle}` : ""}
+        </Text>
+      </View>
+
+      {/* Tiles */}
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1, backgroundColor: M.stone50, padding: 12, borderRadius: RADIUS.md }}>
+          <Text style={{ color: M.stone500, fontSize: 11, fontWeight: "700" }}>SEATS LEFT</Text>
+          <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18, marginTop: 4 }}>
+            {ride.seatsLeft ?? seatsTotal - approvedRequests.length}
+          </Text>
+        </View>
+        <View style={{ flex: 1, backgroundColor: M.stone50, padding: 12, borderRadius: RADIUS.md }}>
+          <Text style={{ color: M.stone500, fontSize: 11, fontWeight: "700" }}>JOINED</Text>
+          <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18, marginTop: 4 }}>
+            {approvedRequests.length}
+          </Text>
+        </View>
+        {ride.approximateCost ? (
+          <View style={{ flex: 1, backgroundColor: M.amber50, padding: 12, borderRadius: RADIUS.md }}>
+            <Text style={{ color: M.stone500, fontSize: 11, fontWeight: "700" }}>EST. / PERSON</Text>
+            <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 18, marginTop: 4 }}>
+              {driverMoney(ride.approximateCost / seatsTotal)}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Riders */}
+      <View style={{ gap: 8 }}>
+        <Text style={{ fontWeight: "700", color: M.stone500, fontSize: 12 }}>
+          RIDERS ({approvedRequests.length})
+        </Text>
+        {approvedRequests.length === 0 ? (
+          <Text style={{ color: M.stone400, fontSize: 13 }}>No one has joined yet.</Text>
+        ) : (
+          approvedRequests.map((req) => {
+            const user = a.users.find((u) => u.id === req.riderId);
+            return (
+              <View key={req.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: M.stone50, padding: 10, borderRadius: RADIUS.md }}>
+                <Image
+                  source={{ uri: user?.avatar || `https://i.pravatar.cc/80?u=${req.riderId}` }}
+                  style={{ width: 36, height: 36, borderRadius: 18 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 13 }}>
+                    {user?.name || "Rider"}
+                  </Text>
+                  <Text style={{ color: M.stone500, fontSize: 11 }}>
+                    {req.pickupPoint} → {req.dropoffPoint}
+                  </Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+        {pendingRequests.length > 0 && (
+          <Text style={{ color: M.stone400, fontSize: 12 }}>
+            +{pendingRequests.length} pending request{pendingRequests.length > 1 ? "s" : ""}
+          </Text>
+        )}
+      </View>
+
+      {ride.completed ? (
+        <View style={{ backgroundColor: M.stone100, padding: 12, borderRadius: RADIUS.md, alignItems: "center" }}>
+          <Text style={{ fontWeight: "900", color: M.stone500, fontSize: 13 }}>This ride is complete.</Text>
+        </View>
+      ) : (
+        <Btn
+          onPress={() =>
+            Alert.alert("Mark Complete", "Confirm this ride is done?", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Mark Complete", onPress: () => a.markRideComplete(ride.id) },
+            ])
+          }
+          variant="dark"
+          style={{ height: 50 }}
+        >
+          Mark as Complete
+        </Btn>
+      )}
+    </View>
+  );
+}
 
 export default function SheetsHost() {
   const a = useApp();
@@ -134,98 +239,186 @@ export default function SheetsHost() {
         </View>
       </Sheet>
 
+      {/* Ride Detail */}
+      <Sheet open={!!a.selectedRideDetail} title="Ride Details" onClose={a.closeRideDetail}>
+        {a.selectedRideDetail ? (() => {
+          const ride = a.selectedRideDetail!;
+          const seatsTotal = ride.seatsTotal || 4;
+          const approvedRequests = a.rideRequests.filter(
+            (r) => r.rideId === ride.id && r.status === "approved"
+          );
+          const pendingRequests = a.rideRequests.filter(
+            (r) => r.rideId === ride.id && r.status === "pending"
+          );
+          const costPerRider = ride.approximateCost ? ride.approximateCost / seatsTotal : 0;
+          return (
+            <View style={{ gap: 16 }}>
+              {/* Route */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 20 }}>{ride.origin}</Text>
+                <Text style={{ color: M.amber500, fontWeight: "900", fontSize: 14 }}>↓</Text>
+                <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 20 }}>{ride.destination}</Text>
+                <Text style={{ color: M.stone500, fontSize: 13, marginTop: 4 }}>
+                  {ride.date}{ride.departureTime ? ` · ${ride.departureTime}` : ""}
+                  {ride.vehicle ? `  ·  ${ride.vehicle}` : ""}
+                </Text>
+              </View>
+
+              {/* Cost + seats summary */}
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flex: 1, backgroundColor: M.stone50, padding: 12, borderRadius: RADIUS.md }}>
+                  <Text style={{ color: M.stone500, fontSize: 11, fontWeight: "700" }}>SEATS LEFT</Text>
+                  <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18, marginTop: 4 }}>
+                    {ride.seatsLeft ?? seatsTotal - approvedRequests.length}
+                  </Text>
+                </View>
+                {costPerRider > 0 && (
+                  <View style={{ flex: 1, backgroundColor: M.amber50, padding: 12, borderRadius: RADIUS.md }}>
+                    <Text style={{ color: M.stone500, fontSize: 11, fontWeight: "700" }}>EST. / PERSON</Text>
+                    <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 18, marginTop: 4 }}>
+                      {driverMoney(costPerRider)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* People already in the ride */}
+              <View style={{ gap: 8 }}>
+                <Text style={{ fontWeight: "700", color: M.stone500, fontSize: 12 }}>
+                  IN THIS RIDE ({approvedRequests.length})
+                </Text>
+                {approvedRequests.length === 0 ? (
+                  <Text style={{ color: M.stone400, fontSize: 13 }}>No one has joined yet.</Text>
+                ) : (
+                  approvedRequests.map((req) => {
+                    const user = a.users.find((u) => u.id === req.riderId);
+                    return (
+                      <View key={req.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: M.stone50, padding: 10, borderRadius: RADIUS.md }}>
+                        <Image
+                          source={{ uri: user?.avatar || `https://i.pravatar.cc/80?u=${req.riderId}` }}
+                          style={{ width: 36, height: 36, borderRadius: 18 }}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 13 }}>
+                            {user?.name || "Rider"}
+                          </Text>
+                          <Text style={{ color: M.stone500, fontSize: 11 }}>
+                            {req.pickupPoint} → {req.dropoffPoint}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+                {pendingRequests.length > 0 && (
+                  <Text style={{ color: M.stone400, fontSize: 12 }}>
+                    +{pendingRequests.length} pending request{pendingRequests.length > 1 ? "s" : ""}
+                  </Text>
+                )}
+              </View>
+
+              <Btn onPress={() => { a.closeRideDetail(); a.openJoinRequest(ride); }} style={{ height: 50 }}>
+                Request to Join
+              </Btn>
+            </View>
+          );
+        })() : null}
+      </Sheet>
+
       {/* Join Request */}
       <Sheet open={!!a.selectedRideToJoin} title="Request to Join" onClose={a.closeJoinRequest}>
         {a.selectedRideToJoin
           ? (() => {
               const ride = a.selectedRideToJoin!;
-              const driver = findUser(a.users, ride.driverId);
               const seatsTotal = ride.seatsTotal || 4;
               const seatsTaken = seatsTotal - (ride.seatsLeft ?? seatsTotal - 1);
-              const costPerRider = ride.approximateCost
-                ? ride.approximateCost / seatsTotal
-                : 0;
+              const costPerRider = ride.approximateCost ? ride.approximateCost / seatsTotal : 0;
+              const isCreator = ride.driverId === a.currentUser.id;
+              const driver = findUser(a.users, ride.driverId);
               return (
                 <View style={{ gap: 16 }}>
-                  {/* Route + details */}
+                  {/* Route */}
                   <View style={{ gap: 4 }}>
-                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18 }}>
-                      {ride.origin}
-                    </Text>
+                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18 }}>{ride.origin}</Text>
                     <Text style={{ color: M.amber500, fontSize: 13, fontWeight: "900" }}>↓</Text>
-                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18 }}>
-                      {ride.destination}
-                    </Text>
+                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 18 }}>{ride.destination}</Text>
                     <Text style={{ color: M.stone500, fontSize: 13, marginTop: 4 }}>
-                      {ride.date} · {ride.departureTime}
+                      {ride.date}{ride.departureTime ? ` · ${ride.departureTime}` : ""}
                       {ride.vehicle ? `  ·  ${ride.vehicle}` : ""}
                     </Text>
                   </View>
 
-                  {/* Driver */}
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: M.stone50, padding: 12, borderRadius: RADIUS.md }}>
-                    <Image source={{ uri: driver.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: "900", color: M.stone950 }}>{driver.name}</Text>
-                      <RatingBadge
-                        label="Driver"
-                        rating={driver.driverRating}
-                        reviewCount={driver.driverReviewCount}
-                        ridesCompleted={driver.driverRidesCompleted}
-                        compact
-                      />
+                  {/* Cost */}
+                  {costPerRider > 0 && (
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: M.amber50, padding: 12, borderRadius: RADIUS.md }}>
+                      <Text style={{ color: M.stone600, fontSize: 13 }}>Estimated cost per person</Text>
+                      <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 16 }}>{driverMoney(costPerRider)}</Text>
                     </View>
-                    {costPerRider > 0 && (
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 16 }}>
-                          {driverMoney(costPerRider)}
-                        </Text>
-                        <Text style={{ color: M.stone400, fontSize: 11 }}>est. / person</Text>
-                      </View>
-                    )}
-                  </View>
+                  )}
 
-                  {/* Seats */}
-                  <View style={{ gap: 8 }}>
-                    <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 12 }}>
-                      SEATS — {seatsTaken} of {seatsTotal} filled
+                  {/* Seats bar */}
+                  <View style={{ gap: 6 }}>
+                    <Text style={{ fontWeight: "700", color: M.stone500, fontSize: 12 }}>
+                      {seatsTotal - seatsTaken} of {seatsTotal} seats left
                     </Text>
                     <View style={{ flexDirection: "row", gap: 6 }}>
                       {Array.from({ length: seatsTotal }).map((_, i) => (
-                        <View
-                          key={i}
-                          style={{
-                            flex: 1,
-                            height: 8,
-                            borderRadius: 4,
-                            backgroundColor: i < seatsTaken ? M.amber400 : M.stone100,
-                          }}
-                        />
+                        <View key={i} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: i < seatsTaken ? M.amber400 : M.stone100 }} />
                       ))}
                     </View>
                   </View>
 
-                  {/* Pickup / dropoff */}
-                  <View style={{ gap: 8 }}>
-                    <TextInput
-                      placeholder="Your pickup point"
-                      placeholderTextColor={M.stone400}
-                      value={a.pickupPoint}
-                      onChangeText={a.setPickupPoint}
-                      style={textInputStyle()}
-                    />
-                    <TextInput
-                      placeholder="Your drop-off point"
-                      placeholderTextColor={M.stone400}
-                      value={a.dropoffPoint}
-                      onChangeText={a.setDropoffPoint}
-                      style={textInputStyle()}
-                    />
-                  </View>
+                  {/* Driver row — only show to creator so they can reassign */}
+                  {isCreator && (
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: M.stone50, padding: 12, borderRadius: RADIUS.md }}>
+                      <View>
+                        <Text style={{ fontWeight: "700", color: M.stone500, fontSize: 11 }}>DRIVER</Text>
+                        <Text style={{ fontWeight: "900", color: M.stone950, marginTop: 2 }}>{driver.name || "You"}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const others = a.users.filter((u) => u.id !== ride.driverId);
+                          if (others.length === 0) { alert("No other members to assign as driver."); return; }
+                          Alert.alert(
+                            "Reassign Driver",
+                            "Choose a new driver",
+                            [
+                              ...others.map((u) => ({
+                                text: u.name,
+                                onPress: () => a.reassignDriver(ride.id, u.id),
+                              })),
+                              { text: "Cancel", style: "cancel" as const },
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={{ fontWeight: "900", color: M.amber600, fontSize: 13 }}>Reassign</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-                  <Btn onPress={a.submitJoinRequest} style={{ height: 50 }}>
-                    Send Request
-                  </Btn>
+                  {/* Pickup / dropoff — only show to non-creator */}
+                  {!isCreator && (
+                    <View style={{ gap: 8 }}>
+                      <TextInput
+                        placeholder="Your pickup point"
+                        placeholderTextColor={M.stone400}
+                        value={a.pickupPoint}
+                        onChangeText={a.setPickupPoint}
+                        style={textInputStyle()}
+                      />
+                      <TextInput
+                        placeholder="Your drop-off point"
+                        placeholderTextColor={M.stone400}
+                        value={a.dropoffPoint}
+                        onChangeText={a.setDropoffPoint}
+                        style={textInputStyle()}
+                      />
+                      <Btn onPress={a.submitJoinRequest} style={{ height: 50 }}>
+                        Send Request
+                      </Btn>
+                    </View>
+                  )}
                 </View>
               );
             })()
@@ -1212,6 +1405,15 @@ export default function SheetsHost() {
           />
           <Btn onPress={a.confirmDriverRate}>submit</Btn>
         </View>
+      </Sheet>
+
+      {/* Posted Ride Detail */}
+      <Sheet
+        open={!!a.selectedPostedRide}
+        title="My Ride"
+        onClose={a.closePostedRideDetail}
+      >
+        {a.selectedPostedRide ? <PostedRideDetailContent /> : null}
       </Sheet>
     </>
   );
