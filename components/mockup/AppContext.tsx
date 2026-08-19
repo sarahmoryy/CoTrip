@@ -199,6 +199,8 @@ export type AppContextValue = {
   setDriverFuelOpen: (v: boolean) => void;
   driverCarDraft: { make: string; model: string; year: string };
   driverCarLoading: boolean;
+  driverModelsLoading: boolean;
+  driverYearsLoading: boolean;
   driverMakeOptions: string[];
   driverModelOptions: string[];
   driverYearOptions: string[];
@@ -340,6 +342,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [driverFuelOpen, setDriverFuelOpen] = useState(false);
   const [driverCarDraft, setDriverCarDraft] = useState({ make: "", model: "", year: "" });
   const [driverCarLoading, setDriverCarLoading] = useState(false);
+  const [driverModelsLoading, setDriverModelsLoading] = useState(false);
+  const [driverYearsLoading, setDriverYearsLoading] = useState(false);
   const [driverMakeOptions, setDriverMakeOptions] = useState<string[]>([]);
   const [driverModelOptions, setDriverModelOptions] = useState<string[]>([]);
   const [driverYearOptions, setDriverYearOptions] = useState<string[]>([]);
@@ -1233,16 +1237,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const driverResetCarDraft = useCallback(async () => {
     setDriverCarLoading(true);
     const makes = await CarService.listMakes();
-    const firstMake = makes[0] || "";
-    const models = firstMake ? await CarService.listModels(firstMake) : [];
-    const firstModel = models[0] || "";
-    const years = firstModel ? await CarService.listYears(firstMake, firstModel) : [];
-    const firstYear = years[0] != null ? String(years[0]) : "";
 
     setDriverMakeOptions(makes);
-    setDriverModelOptions(models);
-    setDriverYearOptions(years.map(String));
-    setDriverCarDraft({ make: firstMake, model: firstModel, year: firstYear });
+    setDriverModelOptions([]);
+    setDriverYearOptions([]);
+    setDriverCarDraft({ make: "", model: "", year: "" });
     setDriverCarConsumption("7.5");
     setDriverCarLoading(false);
   }, []);
@@ -1256,13 +1255,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDriverCarDraft({ make, model: "", year: "" });
     setDriverModelOptions([]);
     setDriverYearOptions([]);
+    setDriverModelsLoading(true);
     const models = await CarService.listModels(make);
-    const firstModel = models[0] || "";
-    const years = firstModel ? await CarService.listYears(make, firstModel) : [];
-    const firstYear = years[0] != null ? String(years[0]) : "";
     setDriverModelOptions(models);
-    setDriverYearOptions(years.map(String));
-    setDriverCarDraft({ make, model: firstModel, year: firstYear });
+    setDriverModelsLoading(false);
   }, []);
 
   const selectDriverCarModel = useCallback(
@@ -1270,10 +1266,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const make = driverCarDraft.make;
       setDriverCarDraft((prev) => ({ ...prev, model, year: "" }));
       setDriverYearOptions([]);
+      setDriverYearsLoading(true);
       const years = await CarService.listYears(make, model);
-      const firstYear = years[0] != null ? String(years[0]) : "";
       setDriverYearOptions(years.map(String));
-      setDriverCarDraft({ make, model, year: firstYear });
+      setDriverYearsLoading(false);
     },
     [driverCarDraft.make],
   );
@@ -1648,6 +1644,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDriverFuelOpen,
     driverCarDraft,
     driverCarLoading,
+    driverModelsLoading,
+    driverYearsLoading,
     driverMakeOptions,
     driverModelOptions,
     driverYearOptions,

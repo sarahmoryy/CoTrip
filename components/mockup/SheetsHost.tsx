@@ -1,4 +1,3 @@
-import { Picker } from "@react-native-picker/picker";
 import {
   Car,
   CheckCircle2,
@@ -8,7 +7,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -42,6 +41,127 @@ import {
   StatusPill,
   textInputStyle,
 } from "./ui";
+
+function CarSearchField({
+  label,
+  placeholder,
+  value,
+  options,
+  loading,
+  disabled,
+  resetToken,
+  onCommit,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  options: string[];
+  loading?: boolean;
+  disabled?: boolean;
+  resetToken: boolean;
+  onCommit: (value: string) => void;
+}) {
+  const [query, setQuery] = useState(value);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setQuery(value);
+    setError("");
+    setShowSuggestions(false);
+  }, [value, resetToken]);
+
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+    return list.slice(0, 6);
+  }, [query, options]);
+
+  const commit = (v: string) => {
+    setQuery(v);
+    setError("");
+    setShowSuggestions(false);
+    onCommit(v);
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => setShowSuggestions(false), 150);
+    const q = query.trim();
+    if (!q || q.toLowerCase() === value.toLowerCase()) return;
+    const match = options.find((o) => o.toLowerCase() === q.toLowerCase());
+    if (match) {
+      commit(match);
+    } else {
+      setError(`No ${label} found matching "${query}"`);
+    }
+  };
+
+  return (
+    <View style={{ gap: 6, opacity: disabled ? 0.5 : 1 }}>
+      <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>{label}</Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          backgroundColor: M.amber50,
+          borderRadius: RADIUS.md,
+          borderWidth: 1,
+          borderColor: error ? M.red600 : M.amber100,
+          paddingHorizontal: 12,
+        }}
+      >
+        <Search size={14} color={M.stone500} />
+        <TextInput
+          editable={!disabled}
+          value={query}
+          onChangeText={(t) => {
+            setQuery(t);
+            setError("");
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          placeholderTextColor={M.stone400}
+          style={{ flex: 1, paddingVertical: 12, fontSize: 14, color: M.stone800 }}
+        />
+        {loading ? <ActivityIndicator size="small" color={M.amber500} /> : null}
+      </View>
+
+      {!!error && (
+        <Text style={{ color: M.red600, fontSize: 11, fontWeight: "700" }}>{error}</Text>
+      )}
+
+      {showSuggestions && !disabled && suggestions.length > 0 && (
+        <View
+          style={{
+            backgroundColor: M.surface,
+            borderRadius: RADIUS.md,
+            borderWidth: 1,
+            borderColor: M.amber100,
+            overflow: "hidden",
+          }}
+        >
+          {suggestions.map((opt, i) => (
+            <TouchableOpacity
+              key={opt}
+              onPress={() => commit(opt)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 11,
+                borderBottomWidth: i !== suggestions.length - 1 ? 0.5 : 0,
+                borderBottomColor: M.amber100,
+              }}
+            >
+              <Text style={{ color: M.stone800, fontSize: 14 }}>{opt}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
 
 function PostedRideDetailContent() {
   const a = useApp();
@@ -919,34 +1039,43 @@ export default function SheetsHost() {
           <ActivityIndicator color={M.amber500} style={{ padding: 24 }} />
         ) : (
           <View style={{ gap: 12 }}>
-            <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>make</Text>
-            <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
-              <Picker selectedValue={a.driverCarDraft.make} onValueChange={a.selectDriverCarMake}>
-                {a.driverMakeOptions.map((make) => (
-                  <Picker.Item key={make} label={make} value={make} />
-                ))}
-              </Picker>
-            </View>
+            <CarSearchField
+              label="make"
+              placeholder="Search car make"
+              value={a.driverCarDraft.make}
+              options={a.driverMakeOptions}
+              resetToken={a.driverAddCarOpen}
+              onCommit={a.selectDriverCarMake}
+            />
 
-            <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>model</Text>
-            <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
-              <Picker selectedValue={a.driverCarDraft.model} onValueChange={a.selectDriverCarModel}>
-                {a.driverModelOptions.map((m) => (
-                  <Picker.Item key={m} label={m} value={m} />
-                ))}
-              </Picker>
-            </View>
+            <CarSearchField
+              label="model"
+              placeholder={a.driverCarDraft.make ? "Search model" : "Choose a make first"}
+              value={a.driverCarDraft.model}
+              options={a.driverModelOptions}
+              loading={a.driverModelsLoading}
+              disabled={!a.driverCarDraft.make}
+              resetToken={a.driverAddCarOpen}
+              onCommit={a.selectDriverCarModel}
+            />
 
-            <Text style={{ fontWeight: "900", color: M.stone600, fontSize: 11 }}>year</Text>
-            <View style={{ backgroundColor: M.amber50, borderRadius: RADIUS.md, borderWidth: 1, borderColor: M.amber100 }}>
-              <Picker selectedValue={a.driverCarDraft.year} onValueChange={a.selectDriverCarYear}>
-                {a.driverYearOptions.map((y) => (
-                  <Picker.Item key={y} label={y} value={y} />
-                ))}
-              </Picker>
-            </View>
+            <CarSearchField
+              label="year"
+              placeholder={a.driverCarDraft.model ? "Search year" : "Choose a model first"}
+              value={a.driverCarDraft.year}
+              options={a.driverYearOptions}
+              loading={a.driverYearsLoading}
+              disabled={!a.driverCarDraft.model}
+              resetToken={a.driverAddCarOpen}
+              onCommit={a.selectDriverCarYear}
+            />
 
-            <Btn onPress={a.confirmDriverCarBasic}>confirm</Btn>
+            <Btn
+              onPress={a.confirmDriverCarBasic}
+              disabled={!a.driverCarDraft.make || !a.driverCarDraft.model || !a.driverCarDraft.year}
+            >
+              confirm
+            </Btn>
           </View>
         )}
       </Sheet>
