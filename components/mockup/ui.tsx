@@ -660,58 +660,71 @@ export function RideCard({
   ride,
   onOpenDetail,
   isOwn,
+  requestStatus,
 }: {
   ride: MRide;
   onOpenDetail: (r: MRide) => void;
   isOwn?: boolean;
+  requestStatus?: "pending" | "approved" | "declined";
 }) {
-  return (
-    <ShellCard>
-      <View style={{ padding: 16, gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <RoundIcon>
-            <Car color={M.white} size={26} />
-          </RoundIcon>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "900", color: M.stone950 }}>
-              {ride.origin} <Text style={{ color: M.amber500 }}>→</Text> {ride.destination}
-            </Text>
-            <Text style={{ marginTop: 3, fontSize: 13, color: M.stone500 }}>
-              {ride.date}{ride.departureTime ? ` · ${ride.departureTime}` : ""}
-            </Text>
-          </View>
-        </View>
+  const joinLabel =
+    requestStatus === "approved" ? "Joined" :
+    requestStatus === "pending" ? "Requested" :
+    "Join";
+  const joined = requestStatus === "approved" || requestStatus === "pending";
 
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <UserIcon color={M.stone500} size={14} />
-            <Text style={{ color: M.stone500, fontSize: 13 }}>
-              {ride.seatsLeft} {ride.seatsLeft === 1 ? "seat" : "seats"} left
-            </Text>
-            {ride.distance ? (
-              <>
-                <Text style={{ color: M.stone300, marginHorizontal: 4 }}>·</Text>
-                <MapPin color={M.stone500} size={14} />
-                <Text style={{ color: M.stone500, fontSize: 13 }}>{ride.distance}</Text>
-              </>
-            ) : null}
-          </View>
-          {isOwn ? (
-            <View style={{ backgroundColor: M.stone100, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 }}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: M.stone500 }}>Your ride</Text>
+  return (
+    <TouchableOpacity activeOpacity={0.85} onPress={() => onOpenDetail(ride)}>
+      <ShellCard>
+        <View style={{ padding: 16, gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <RoundIcon>
+              <Car color={M.white} size={26} />
+            </RoundIcon>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "900", color: M.stone950 }}>
+                {ride.origin} <Text style={{ color: M.amber500 }}>→</Text> {ride.destination}
+              </Text>
+              <Text style={{ marginTop: 3, fontSize: 13, color: M.stone500 }}>
+                {ride.date}{ride.departureTime ? ` · ${ride.departureTime}` : ""}
+              </Text>
             </View>
-          ) : (
-            <TouchableOpacity
-              onPress={() => onOpenDetail(ride)}
-              style={{ backgroundColor: M.amber400, paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 }}
-              hitSlop={8}
-            >
-              <Text style={{ fontSize: 13, fontWeight: "900", color: M.white }}>Join</Text>
-            </TouchableOpacity>
-          )}
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <UserIcon color={M.stone500} size={14} />
+              <Text style={{ color: M.stone500, fontSize: 13 }}>
+                {ride.seatsLeft} {ride.seatsLeft === 1 ? "seat" : "seats"} left
+              </Text>
+              {ride.distance ? (
+                <>
+                  <Text style={{ color: M.stone300, marginHorizontal: 4 }}>·</Text>
+                  <MapPin color={M.stone500} size={14} />
+                  <Text style={{ color: M.stone500, fontSize: 13 }}>{ride.distance}</Text>
+                </>
+              ) : null}
+            </View>
+            {isOwn ? (
+              <View style={{ backgroundColor: M.stone100, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 }}>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: M.stone500 }}>Your ride</Text>
+              </View>
+            ) : requestStatus === "declined" ? null : (
+              <View style={{
+                backgroundColor: joined ? M.stone200 : M.amber400,
+                paddingHorizontal: 16,
+                paddingVertical: 7,
+                borderRadius: 999,
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: "900", color: joined ? M.stone500 : M.white }}>
+                  {joinLabel}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </ShellCard>
+      </ShellCard>
+    </TouchableOpacity>
   );
 }
 

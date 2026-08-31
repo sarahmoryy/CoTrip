@@ -47,6 +47,7 @@ export type MRideRequest = {
   id: string;
   rideId: string;
   riderId: string;
+  riderName?: string;
   pickupPoint: string;
   dropoffPoint: string;
   status: MRequestStatus;

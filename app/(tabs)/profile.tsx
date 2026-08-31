@@ -35,6 +35,9 @@ export default function ProfileScreen() {
     newFriendEmail,
     setNewFriendEmail,
     addFriendFromProfile,
+    incomingFriendRequests,
+    acceptFriendRequest,
+    declineFriendRequest,
     driverFriends,
     driverFriendFolders,
     setDriverSyncOpen,
@@ -259,19 +262,67 @@ export default function ProfileScreen() {
         <View style={{ padding: 16, gap: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <UserPlus color={M.amber500} size={18} />
-            <Text style={{ fontWeight: "900", color: M.stone950 }}>Add Friend</Text>
+            <Text style={{ fontWeight: "900", color: M.stone950 }}>Friends</Text>
+            {connections.length > 0 && (
+              <View style={{ backgroundColor: M.amber400, borderRadius: 99, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ color: M.white, fontWeight: "900", fontSize: 11 }}>{connections.length}</Text>
+              </View>
+            )}
           </View>
+
+          {/* Incoming requests */}
+          {incomingFriendRequests.length > 0 && (
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={{ fontWeight: "900", color: M.stone700, fontSize: 12 }}>REQUESTS</Text>
+                <View style={{ backgroundColor: M.amber400, borderRadius: 99, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  <Text style={{ color: M.white, fontWeight: "900", fontSize: 10 }}>{incomingFriendRequests.length}</Text>
+                </View>
+              </View>
+              {incomingFriendRequests.map((req) => (
+                <View key={req.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: M.amber50, padding: 10, borderRadius: RADIUS.md }}>
+                  <Image source={{ uri: `https://i.pravatar.cc/80?u=${req.senderId}` }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 13 }}>{req.senderName}</Text>
+                    <Text style={{ color: M.stone500, fontSize: 11 }}>{req.senderEmail}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    <Btn onPress={() => acceptFriendRequest(req.id)} style={{ paddingHorizontal: 12, paddingVertical: 6 }}>Accept</Btn>
+                    <Btn onPress={() => declineFriendRequest(req.id)} variant="muted" style={{ paddingHorizontal: 12, paddingVertical: 6 }}>Decline</Btn>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Add by email */}
           <View style={{ flexDirection: "row", gap: 8 }}>
             <TextInput
-              placeholder="Friend email"
+              placeholder="Add by email"
               placeholderTextColor={M.stone400}
               autoCapitalize="none"
               value={newFriendEmail}
               onChangeText={setNewFriendEmail}
               style={[textInputStyle(), { flex: 1 }]}
             />
-            <Btn onPress={addFriendFromProfile}>Add</Btn>
+            <Btn onPress={addFriendFromProfile}>Send</Btn>
           </View>
+
+          {connections.length === 0 ? (
+            <Text style={{ color: M.stone400, fontSize: 13 }}>No friends yet. Send a request above.</Text>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {connections.map((c) => (
+                <View key={c.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: M.stone50, padding: 10, borderRadius: RADIUS.md }}>
+                  <Image source={{ uri: c.avatar }} style={{ width: 38, height: 38, borderRadius: 19 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 13 }}>{c.name}</Text>
+                    <Text style={{ color: M.stone500, fontSize: 11 }}>{c.email}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ShellCard>
 

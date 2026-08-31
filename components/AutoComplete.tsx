@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Text,
   TextInput,
   TouchableOpacity,
@@ -42,6 +43,8 @@ export default function AutocompleteInput({
   const [error, setError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
   const reqCounter = useRef(0);
+  const hasSelected = useRef(false);
+  const settingProgrammatically = useRef(false);
 
   const fetchPredictions = async (text: string) => {
     const trimmed = text.trim();
@@ -76,11 +79,17 @@ export default function AutocompleteInput({
   );
 
   const handleChange = (text: string) => {
+    if (settingProgrammatically.current) {
+      settingProgrammatically.current = false;
+      return;
+    }
+    hasSelected.current = false;
     setQuery(text);
     onTextChange?.(text);
     debouncedFetch(text);
   };
   const clearInput = () => {
+    hasSelected.current = false;
     setQuery("");
     setPredictions([]);
     setError(null);
@@ -88,9 +97,15 @@ export default function AutocompleteInput({
   };
 
   const pickItem = async (place_id: string) => {
+    debouncedFetch.cancel();
+    hasSelected.current = true;
+    setPredictions([]);
+    setError(null);
+    Keyboard.dismiss();
     try {
       setLoading(true);
       const d = await placeDetails(place_id);
+      settingProgrammatically.current = true;
       setQuery(d.description);
       setPredictions([]);
       onSelected({
@@ -191,7 +206,7 @@ export default function AutocompleteInput({
         </Text>
       )}
 
-      {!loading && visiblePredictions.length > 0 && (
+      {!loading && !hasSelected.current && visiblePredictions.length > 0 && (
         <View
           style={{
             marginTop: 4,

@@ -220,21 +220,31 @@ function PostedRideDetailContent() {
           <Text style={{ color: M.stone400, fontSize: 13 }}>No one has joined yet.</Text>
         ) : (
           approvedRequests.map((req) => {
-            const user = a.users.find((u) => u.id === req.riderId);
+            const displayName = req.riderName || a.users.find((u) => u.id === req.riderId)?.name || "Unknown";
             return (
               <View key={req.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: M.stone50, padding: 10, borderRadius: RADIUS.md }}>
                 <Image
-                  source={{ uri: user?.avatar || `https://i.pravatar.cc/80?u=${req.riderId}` }}
+                  source={{ uri: `https://i.pravatar.cc/80?u=${req.riderId}` }}
                   style={{ width: 36, height: 36, borderRadius: 18 }}
                 />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: "900", color: M.stone950, fontSize: 13 }}>
-                    {user?.name || "Rider"}
+                    {displayName}
                   </Text>
                   <Text style={{ color: M.stone500, fontSize: 11 }}>
                     {req.pickupPoint} → {req.dropoffPoint}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  onPress={() =>
+                    Alert.alert("Remove Rider", `Remove ${displayName} from the ride?`, [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Remove", style: "destructive", onPress: () => a.removeRider(req.id) },
+                    ])
+                  }
+                >
+                  <Text style={{ color: M.stone400, fontSize: 11, fontWeight: "700" }}>Remove</Text>
+                </TouchableOpacity>
               </View>
             );
           })
@@ -376,6 +386,10 @@ export default function SheetsHost() {
           const pendingRequests = a.rideRequests.filter(
             (r) => r.rideId === ride.id && r.status === "pending"
           );
+          const myRequest = a.rideRequests.find(
+            (r) => r.rideId === ride.id && r.riderId === a.currentUser.id
+          );
+          const isDriver = ride.driverId === a.currentUser.id;
           const costPerRider = ride.approximateCost ? ride.approximateCost / seatsTotal : 0;
           return (
             <View style={{ gap: 16 }}>
@@ -443,9 +457,17 @@ export default function SheetsHost() {
                 )}
               </View>
 
-              <Btn onPress={() => { a.closeRideDetail(); a.openJoinRequest(ride); }} style={{ height: 50 }}>
-                Request to Join
-              </Btn>
+              {!isDriver && myRequest?.status !== "declined" && (
+                myRequest ? (
+                  <Btn disabled style={{ height: 50 }} onPress={() => {}}>
+                    {myRequest.status === "approved" ? "Joined" : "Request Pending"}
+                  </Btn>
+                ) : (
+                  <Btn onPress={() => { a.closeRideDetail(); a.openJoinRequest(ride); }} style={{ height: 50 }}>
+                    Request to Join
+                  </Btn>
+                )
+              )}
             </View>
           );
         })() : null}

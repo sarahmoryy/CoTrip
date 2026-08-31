@@ -131,6 +131,7 @@ export type AppContextValue = {
   closePostedRideDetail: () => void;
   updatePostedRide: (id: string, fields: Partial<Pick<MRide, "origin" | "destination" | "departureTime" | "date" | "vehicle">>) => void;
   markRideComplete: (id: string) => void;
+  removeRider: (requestId: string) => void;
 
   // join request
   selectedRideToJoin: MRide | null;
@@ -189,6 +190,9 @@ export type AppContextValue = {
   newFriendEmail: string;
   setNewFriendEmail: (v: string) => void;
   addFriendFromProfile: () => void;
+  incomingFriendRequests: { id: string; senderId: string; senderName: string; senderEmail: string }[];
+  acceptFriendRequest: (requestId: string) => Promise<void>;
+  declineFriendRequest: (requestId: string) => Promise<void>;
 
   // driver cars
   driverCars: MDriverCar[];
@@ -324,6 +328,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profileView, setProfileView] = useState<"overview" | "connections" | "connection_profile">("overview");
   const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
   const [newFriendEmail, setNewFriendEmail] = useState("");
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState<
+    { id: string; senderId: string; senderName: string; senderEmail: string }[]
+  >([]);
 
   const [selectedCarForRide, setSelectedCarForRide] = useState<MCarOwned | null>(null);
   const [newRideForm, setNewRideForm] = useState({ origin: "", destination: "", time: "", date: "" });
@@ -389,11 +396,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ---- load data from Supabase on mount ----
   useEffect(() => {
     async function loadData() {
+      const { data: authData } = await supabase.auth.getUser();
+      const authUser = authData?.user;
+      if (!authUser) return;
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        const authUser = authData?.user;
-        if (!authUser) return;
-
         const profile = await UserService.me().catch(() => null);
         const me: MUser = {
           id: authUser.id,
@@ -428,6 +434,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           riderReviews: [],
         }));
         setUsers([me, ...connUsers]);
+
+        // Load incoming friend requests
+        const incoming = await ConnectionService.listIncoming().catch(() => []);
+        setIncomingFriendRequests(incoming.map((r) => ({
+          id: r.id,
+          senderId: r.sender_id,
+          senderName: r.sender_name || r.sender_email?.split("@")[0] || "Unknown",
+          senderEmail: r.sender_email || "",
+        })));
 
         // Load groups
         const dbGroups = await GroupService.list().catch(() => []);
@@ -465,6 +480,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }));
         setRides(mRides);
 
+        // Fetch profiles for any drivers not already in users (so findUser shows their real name)
+        const knownIds = new Set([me.id, ...connUsers.map((u) => u.id)]);
+        const unknownDriverIds = [...new Set(dbRides.map((r) => r.driver_id))].filter((id) => !knownIds.has(id));
+        if (unknownDriverIds.length > 0) {
+          const { data: driverProfiles } = await supabase.rpc("get_profiles_by_ids", { ids: unknownDriverIds });
+          const driverUsers: MUser[] = (driverProfiles || []).map((p: any) => ({
+            id: p.id,
+            name: p.full_name || p.email?.split("@")[0] || "Unknown",
+            email: p.email || "",
+            avatar: `https://i.pravatar.cc/80?u=${p.id}`,
+            driverRating: 0, driverReviewCount: 0, driverRidesCompleted: 0,
+            riderRating: 0, riderReviewCount: 0, riderRidesCompleted: 0,
+            driverReviews: [], riderReviews: [],
+          }));
+          setUsers((prev) => {
+            const existingIds = new Set(prev.map((u) => u.id));
+            return [...prev, ...driverUsers.filter((u) => !existingIds.has(u.id))];
+          });
+        }
+
         // Load ride requests (as rider + as driver for my rides)
         const { data: myRiderReqs } = await supabase
           .from("ride_requests")
@@ -473,20 +508,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const myRideIds = dbRides
           .filter((r) => r.driver_id === authUser.id)
           .map((r) => r.id);
-        const driverReqs =
-          myRideIds.length > 0
-            ? await SharedRideService.listRequests(myRideIds).catch(() => [])
-            : [];
+        const { data: driverReqsRaw } = myRideIds.length > 0
+          ? await supabase
+              .from("ride_requests")
+              .select("*")
+              .in("ride_id", myRideIds)
+          : { data: [] };
         const allReqs = [
           ...(myRiderReqs || []),
-          ...driverReqs,
+          ...(driverReqsRaw || []),
         ].filter(
           (v, i, a) => a.findIndex((x: any) => x.id === v.id) === i
         );
+
+        // Fetch rider profiles in one RPC call (bypasses own-only RLS)
+        const uniqueRiderIds = [...new Set(allReqs.map((r: any) => r.rider_id))];
+        const { data: riderProfiles } = uniqueRiderIds.length > 0
+          ? await supabase.rpc("get_profiles_by_ids", { ids: uniqueRiderIds })
+          : { data: [] };
+        const profileMap: Record<string, string> = {};
+        for (const p of (riderProfiles || [])) {
+          profileMap[p.id] = p.full_name || p.email?.split("@")[0] || "";
+        }
+
         const mRequests: MRideRequest[] = allReqs.map((r: any) => ({
           id: r.id,
           rideId: r.ride_id,
           riderId: r.rider_id,
+          riderName: profileMap[r.rider_id] || undefined,
           pickupPoint: r.pickup_point,
           dropoffPoint: r.dropoff_point,
           status: r.status as MRequestStatus,
@@ -510,6 +559,147 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
     loadData();
+  }, []);
+
+  // ---- real-time subscriptions ----
+  useEffect(() => {
+    const channel = supabase
+      .channel("cotrip-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "rides" },
+        (payload) => {
+          const r = payload.new as any;
+          setRides((prev) => {
+            if (prev.some((x) => x.id === r.id)) return prev;
+            return [...prev, {
+              id: r.id,
+              groupId: r.group_id,
+              driverId: r.driver_id,
+              vehicle: r.vehicle,
+              origin: r.origin,
+              destination: r.destination,
+              departureTime: r.departure_time,
+              date: r.date,
+              distance: "",
+              duration: "",
+              approximateCost: r.approximate_cost,
+              seatsTotal: r.seats_total,
+              passengerIds: [],
+              seatsLeft: r.seats_left,
+              completed: r.completed ?? false,
+            }];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "rides" },
+        (payload) => {
+          const r = payload.new as any;
+          setRides((prev) =>
+            prev.map((x) =>
+              x.id === r.id
+                ? {
+                    ...x,
+                    seatsLeft: r.seats_left,
+                    seatsTotal: r.seats_total,
+                    completed: r.completed ?? x.completed,
+                    vehicle: r.vehicle,
+                    origin: r.origin,
+                    destination: r.destination,
+                    departureTime: r.departure_time,
+                    date: r.date,
+                    approximateCost: r.approximate_cost,
+                  }
+                : x
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "ride_requests" },
+        (payload) => {
+          const r = payload.new as any;
+          setRideRequests((prev) => {
+            if (prev.some((x) => x.id === r.id)) return prev;
+            return [...prev, {
+              id: r.id,
+              rideId: r.ride_id,
+              riderId: r.rider_id,
+              pickupPoint: r.pickup_point,
+              dropoffPoint: r.dropoff_point,
+              status: r.status as MRequestStatus,
+              createdAt: new Date(r.created_at).toLocaleDateString(),
+              expectedTotalCost: r.expected_total_cost,
+            }];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "ride_requests" },
+        (payload) => {
+          const r = payload.new as any;
+          setRideRequests((prev) =>
+            prev.map((x) =>
+              x.id === r.id ? { ...x, status: r.status as MRequestStatus } : x
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "friend_requests" },
+        async (payload) => {
+          const r = payload.new as any;
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id !== r.receiver_id) return;
+          const { data: profiles } = await supabase.rpc("get_profiles_by_ids", { ids: [r.sender_id] });
+          const p = (profiles || [])[0];
+          setIncomingFriendRequests((prev) => {
+            if (prev.some((x) => x.id === r.id)) return prev;
+            return [...prev, {
+              id: r.id,
+              senderId: r.sender_id,
+              senderName: p?.full_name || p?.email?.split("@")[0] || "Unknown",
+              senderEmail: p?.email || "",
+            }];
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "connections" },
+        async (payload) => {
+          const c = payload.new as any;
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id !== c.user_id) return;
+          // A new friend was added for the current user — add them and reload rides
+          const newUser: MUser = {
+            id: c.friend_id,
+            name: c.friend_name || c.friend_email?.split("@")[0] || "Unknown",
+            email: c.friend_email || "",
+            avatar: `https://i.pravatar.cc/80?u=${c.friend_id}`,
+            driverRating: 0, driverReviewCount: 0, driverRidesCompleted: 0,
+            riderRating: 0, riderReviewCount: 0, riderRidesCompleted: 0,
+            driverReviews: [], riderReviews: [],
+          };
+          setUsers((prev) => prev.some((u) => u.id === newUser.id) ? prev : [...prev, newUser]);
+          SharedRideService.list().then((dbRides) => {
+            setRides(dbRides.map((r) => ({
+              id: r.id, groupId: r.group_id, driverId: r.driver_id, vehicle: r.vehicle,
+              origin: r.origin, destination: r.destination, departureTime: r.departure_time,
+              date: r.date, distance: "", duration: "", approximateCost: r.approximate_cost,
+              seatsTotal: r.seats_total, passengerIds: [], seatsLeft: r.seats_left, completed: r.completed,
+            })));
+          }).catch(console.error);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // derived
@@ -662,34 +852,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const email = newFriendEmail.trim();
     if (!email) return;
     try {
-      const conn = await ConnectionService.add(email);
-      if (conn) {
-        const newUser: MUser = {
-          id: conn.friend_id,
-          name: conn.friend_name || conn.friend_email.split("@")[0],
-          email: conn.friend_email,
-          avatar: `https://i.pravatar.cc/80?u=${conn.friend_id}`,
-          driverRating: 0,
-          driverReviewCount: 0,
-          driverRidesCompleted: 0,
-          riderRating: 0,
-          riderReviewCount: 0,
-          riderRidesCompleted: 0,
-          driverReviews: [],
-          riderReviews: [],
-        };
-        setUsers((prev) => {
-          if (prev.some((u) => u.id === newUser.id)) return prev;
-          return [...prev, newUser];
-        });
+      const result = await ConnectionService.sendRequest(email);
+      if (result === "sent") {
+        pushNotification("Friend request sent", `Request sent to ${email}`);
+      } else if (result === "already_friends") {
+        pushNotification("Already friends", `You're already connected with ${email}`);
+      } else if (result === "already_sent") {
+        pushNotification("Request pending", `You already sent a request to ${email}`);
       } else {
-        createUserFromEmail(email);
+        pushNotification("User not found", `No account found for ${email}`);
       }
     } catch {
-      createUserFromEmail(email);
+      pushNotification("Error", "Could not send friend request");
     }
     setNewFriendEmail("");
-  }, [newFriendEmail, createUserFromEmail]);
+  }, [newFriendEmail, pushNotification]);
+
+  const acceptFriendRequest = useCallback(async (requestId: string) => {
+    const req = incomingFriendRequests.find((r) => r.id === requestId);
+    if (!req) return;
+    await ConnectionService.accept(requestId);
+    setIncomingFriendRequests((prev) => prev.filter((r) => r.id !== requestId));
+    const newUser: MUser = {
+      id: req.senderId,
+      name: req.senderName,
+      email: req.senderEmail,
+      avatar: `https://i.pravatar.cc/80?u=${req.senderId}`,
+      driverRating: 0, driverReviewCount: 0, driverRidesCompleted: 0,
+      riderRating: 0, riderReviewCount: 0, riderRidesCompleted: 0,
+      driverReviews: [], riderReviews: [],
+    };
+    setUsers((prev) => prev.some((u) => u.id === newUser.id) ? prev : [...prev, newUser]);
+    // Reload rides so new friend's rides become visible
+    SharedRideService.list().then((dbRides) => {
+      setRides(dbRides.map((r) => ({
+        id: r.id, groupId: r.group_id, driverId: r.driver_id, vehicle: r.vehicle,
+        origin: r.origin, destination: r.destination, departureTime: r.departure_time,
+        date: r.date, distance: "", duration: "", approximateCost: r.approximate_cost,
+        seatsTotal: r.seats_total, passengerIds: [], seatsLeft: r.seats_left, completed: r.completed,
+      })));
+    }).catch(console.error);
+    pushNotification("Friend added", `You and ${req.senderName} are now connected`);
+  }, [incomingFriendRequests, pushNotification]);
+
+  const declineFriendRequest = useCallback(async (requestId: string) => {
+    await ConnectionService.decline(requestId);
+    setIncomingFriendRequests((prev) => prev.filter((r) => r.id !== requestId));
+  }, []);
 
   const joinGroup = useCallback((groupId: string) => {
     setGroups((p) =>
@@ -823,6 +1032,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const submitJoinRequest = useCallback(async () => {
     if (!selectedRideToJoin || !pickupPoint.trim() || !dropoffPoint.trim()) return;
+    const alreadyRequested = rideRequests.some(
+      (r) => r.rideId === selectedRideToJoin.id && r.riderId === currentUser.id
+    );
+    if (alreadyRequested) return;
     const r = selectedRideToJoin;
     const half = Number(r.approximateCost || 0) / 2;
     const localReq: MRideRequest = {
@@ -934,6 +1147,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [rideRequests, rides, pushNotification]
   );
+
+  const removeRider = useCallback(async (requestId: string) => {
+    const req = rideRequests.find((r) => r.id === requestId);
+    if (!req) return;
+    setRideRequests((p) => p.map((r) => r.id === requestId ? { ...r, status: "declined" } : r));
+    setRides((p) => p.map((r) => r.id === req.rideId ? { ...r, seatsLeft: (r.seatsLeft ?? 0) + 1 } : r));
+    setSelectedPostedRide((prev) =>
+      prev?.id === req.rideId ? { ...prev, seatsLeft: (prev.seatsLeft ?? 0) + 1 } : prev
+    );
+    await SharedRideService.updateRequestStatus(requestId, "declined").catch(console.error);
+    const ride = rides.find((r) => r.id === req.rideId);
+    if (ride) {
+      const newSeatsLeft = (ride.seatsLeft ?? 0) + 1;
+      await SharedRideService.updateSeatCount(req.rideId, newSeatsLeft).catch(console.error);
+    }
+  }, [rideRequests, rides]);
 
   const reassignDriver = useCallback((rideId: string, newDriverId: string) => {
     setRides((p) => p.map((r) => r.id === rideId ? { ...r, driverId: newDriverId } : r));
@@ -1636,6 +1865,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     newFriendEmail,
     setNewFriendEmail,
     addFriendFromProfile,
+    incomingFriendRequests,
+    acceptFriendRequest,
+    declineFriendRequest,
     driverCars,
     driverAddCarOpen,
     openDriverAddCar,
@@ -1707,6 +1939,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closePostedRideDetail,
     updatePostedRide,
     markRideComplete,
+    removeRider,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

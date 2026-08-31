@@ -6,7 +6,7 @@ import { M, RADIUS } from "../../components/mockup/theme";
 import { MockScreen, RideCard, ShellCard } from "../../components/mockup/ui";
 
 export default function HomeScreen() {
-  const { rides, openRideDetail, currentUser } = useApp();
+  const { rides, openRideDetail, currentUser, rideRequests } = useApp();
   const [query, setQuery] = useState("");
 
   const availableRides = rides.filter((r) => {
@@ -76,6 +76,11 @@ export default function HomeScreen() {
               ride={ride}
               onOpenDetail={openRideDetail}
               isOwn={ride.driverId === currentUser.id}
+              requestStatus={
+                rideRequests.find(
+                  (r) => r.rideId === ride.id && r.riderId === currentUser.id
+                )?.status as "pending" | "approved" | "declined" | undefined
+              }
             />
           ))}
         </View>

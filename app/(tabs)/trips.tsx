@@ -24,12 +24,18 @@ export default function MyRidesScreen() {
 
   const myPostedRides = rides.filter((r) => r.driverId === currentUser.id && !r.completed);
 
-  const pending = requestBuckets.pending;
+  // Requests OTHER people made to rides I'm driving (approval queue)
+  const pending = requestBuckets.pending.filter((req) => {
+    const ride = rides.find((r) => r.id === req.rideId);
+    return ride?.driverId === currentUser.id;
+  });
+
+  // Requests I made as a rider
   const myRequests: MRideRequest[] = [
     ...requestBuckets.pending,
     ...requestBuckets.approved,
     ...requestBuckets.declined,
-  ];
+  ].filter((req) => req.riderId === currentUser.id);
 
   return (
     <MockScreen>
@@ -125,14 +131,18 @@ export default function MyRidesScreen() {
             const ride = rides.find((r) => r.id === req.rideId);
             if (!ride) return null;
             return (
-              <TouchableOpacity key={req.id} onPress={() => openRequestDetailsFromRequest(req)}>
+              <TouchableOpacity
+                key={req.id}
+                onPress={() => req.status !== "declined" && openRequestDetailsFromRequest(req)}
+                activeOpacity={req.status === "declined" ? 1 : 0.85}
+              >
                 <ShellCard>
                   <View style={{ padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: "900", color: M.stone950 }}>
-                        {ride.origin} <Text style={{ color: M.amber500 }}>→</Text> {ride.destination}
+                      <Text style={{ fontWeight: "900", color: req.status === "declined" ? M.stone400 : M.stone950 }}>
+                        {ride.origin} <Text style={{ color: req.status === "declined" ? M.stone400 : M.amber500 }}>→</Text> {ride.destination}
                       </Text>
-                      <Text style={{ marginTop: 4, color: M.stone500, fontSize: 13 }}>
+                      <Text style={{ marginTop: 4, color: M.stone400, fontSize: 13 }}>
                         {req.pickupPoint} → {req.dropoffPoint}
                       </Text>
                     </View>
